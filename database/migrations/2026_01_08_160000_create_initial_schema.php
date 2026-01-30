@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Initial schema migration for MyClap.
  */
-return new class extends Migration {
+return new class extends Migration
+{
     public function up(): void
     {
         Schema::create('clap_user', function (Blueprint $table) {
@@ -24,6 +25,7 @@ return new class extends Migration {
             $table->boolean('alumni')->default(false);
             $table->timestamp('created_on')->useCurrent();
             $table->timestamp('logged_on');
+            $table->rememberToken();
 
             $table->index('promo', 'idx_clap_user_promo');
         });

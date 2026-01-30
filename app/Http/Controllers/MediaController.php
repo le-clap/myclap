@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\ContentAccess;
 use App\Models\Video;
 use App\Services\ThumbnailService;
 use Illuminate\Http\Request;
@@ -17,16 +16,21 @@ class MediaController extends Controller
 
         $this->authorize('view', $video);
 
-        if (!$video->file_identifier || !Storage::disk('local')->exists($video->file_identifier)) {
+        if (! $video->file_identifier || ! Storage::disk('local')->exists($video->file_identifier)) {
             abort(404);
         }
 
-        $path = Storage::disk('local')->path($video->file_identifier);
-        $filename = Str::slug($video->name) . '.mp4';
+        $filename = Str::slug($video->name).'.mp4';
 
-        return response()->file($path, [
+        // X-Accel-Redirect for nginx
+        $internalPath = '/internal-storage/'.$video->file_identifier;
+
+        return response('', 200, [
+            'X-Accel-Redirect' => $internalPath,
             'Content-Type' => 'video/mp4',
-            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
+            'Accept-Ranges' => 'bytes',
+            'Cache-Control' => 'private, max-age=3600',
         ]);
     }
 
@@ -36,55 +40,46 @@ class MediaController extends Controller
 
         $this->authorize('view', $video);
 
-        if (!$video->file_identifier || !Storage::disk('local')->exists($video->file_identifier)) {
+        if (! $video->file_identifier || ! Storage::disk('local')->exists($video->file_identifier)) {
             abort(404);
         }
 
-        $path = Storage::disk('local')->path($video->file_identifier);
-        $filename = Str::slug($video->name) . '.mp4';
+        $filename = Str::slug($video->name).'.mp4';
 
-        return response()->download($path, $filename, [
+        // X-Accel-Redirect for nginx
+        $internalPath = '/internal-storage/'.$video->file_identifier;
+
+        return response('', 200, [
+            'X-Accel-Redirect' => $internalPath,
             'Content-Type' => 'application/octet-stream',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
 
     public function thumbnail(Request $request, string $token)
     {
-        $video = Video::where('token', $token)->first();
-        $size = (int)$request->query('size', 1080);
+        $video = Video::where('token', $token)->firstOrFail();
+        $size = (int) $request->query('size', 1080);
 
-        if (!$video) {
-            return $this->placeholderRedirect();
-        }
+        $this->authorize('view', $video);
 
-        $access = ContentAccess::from($video->access);
-        if ($access === ContentAccess::PRIVATE) {
-            $user = $request->user();
-            if (!$user?->hasPermission('myclap.private')) {
-                return $this->placeholderRedirect();
-            }
-        }
-
-        if (!$video->thumbnail_identifier) {
+        if (! $video->thumbnail_identifier) {
             return $this->placeholderRedirect();
         }
 
         $thumbnailService = app(ThumbnailService::class);
         $path = $thumbnailService->getVariantPath($video->thumbnail_identifier, $size);
 
-        if (!Storage::disk('local')->exists($path)) {
+        if (! Storage::disk('local')->exists($path)) {
             return $this->placeholderRedirect();
         }
-        return $this->serveFile($path);
-    }
 
-    private function serveFile(string $identifier)
-    {
-        $path = Storage::disk('local')->path($identifier);
-        $mimeType = mime_content_type($path) ?: 'image/jpeg';
+        // X-Accel-Redirect for nginx
+        $internalPath = '/internal-storage/'.$path;
 
-        return response()->file($path, [
-            'Content-Type' => $mimeType,
+        return response('', 200, [
+            'X-Accel-Redirect' => $internalPath,
+            'Content-Type' => 'image/jpeg',
             'Cache-Control' => 'private, max-age=86400',
         ]);
     }
