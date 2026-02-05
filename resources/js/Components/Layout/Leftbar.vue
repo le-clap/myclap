@@ -70,9 +70,8 @@ const menuItems = [
             <ul class="space-y-1 px-2">
                 <li>
                     <a
-                        href="https://le-clap.fr"
                         target="_blank"
-                        class="flex items-center gap-4 px-3 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-dark-surface transition-colors text-lg"
+                        class="flex items-center gap-4 px-3 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-dark-surface transition-colors cursor-default text-lg"
                     >
                         <svg class="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

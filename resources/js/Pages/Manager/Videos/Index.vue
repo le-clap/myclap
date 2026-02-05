@@ -10,19 +10,6 @@ defineProps({
     }
 })
 
-function getStatusLabel(status) {
-    switch (status) {
-        case 0:
-            return 'Publié'
-        case 1:
-            return 'En cours'
-        case 2:
-            return 'En attente'
-        default:
-            return 'Inconnu'
-    }
-}
-
 function getStatusClass(status) {
     switch (status) {
         case 0:
@@ -78,7 +65,7 @@ function getStatusClass(status) {
                                       d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
                                       clip-rule="evenodd"/>
                             </svg>
-                            • {{ video.access }}
+                            • {{ video.access_label }}
                         </div>
                         <div class="text-xs text-gray-500 mt-1">
                             Ajoutée le {{ new Date(video.uploaded_on).toLocaleDateString('fr-FR') }} par
@@ -86,7 +73,7 @@ function getStatusClass(status) {
                         </div>
                     </div>
                     <span :class="['px-2 py-1 rounded text-xs', getStatusClass(video.upload_status)]">
-                        {{ getStatusLabel(video.upload_status) }}
+                        {{ video.upload_status_label }}
                     </span>
                 </Link>
             </div>

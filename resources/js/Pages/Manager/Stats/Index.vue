@@ -403,7 +403,7 @@ function getPercentage(count, items) {
                                 </Link>
                                 <span v-else class="text-gray-500">{{ view.video_token }}</span>
                             </td>
-                            <td class="py-3 pr-4 text-sm">{{ view.username || '-' }}</td>
+                            <td class="py-3 pr-4 text-sm">{{ view.is_authenticated ? 'Connecté' : '-' }}</td>
                             <td class="py-3 pr-4 text-sm text-gray-400">{{ formatDateTime(view.created_on) }}</td>
                             <td class="py-3 text-sm">{{
                                     view.watch_time ? formatDuration(view.watch_time) : '-'

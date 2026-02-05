@@ -61,12 +61,18 @@ class StatController extends Controller
             ->orderByDesc('count')
             ->get();
 
-        // Recent views globally
+        // Recent views globally (anonymized for privacy)
         $recentViews = VideoView::with('video:token,name,uploaded_by')
             ->where('count_as_view', 1)
             ->orderByDesc('created_on')
             ->limit(50)
-            ->get();
+            ->get()
+            ->map(function ($view) {
+                $view->is_authenticated = ! empty($view->username);
+                unset($view->username);
+
+                return $view;
+            });
 
         return Inertia::render('Manager/Stats/Index', [
             'totalViews' => $totalViews,
@@ -145,12 +151,18 @@ class StatController extends Controller
             ->orderByDesc('count')
             ->get();
 
-        // Recent views with details
+        // Recent views with details (anonymized for privacy)
         $recentViews = VideoView::where('video_token', $token)
             ->where('count_as_view', 1)
             ->orderByDesc('created_on')
             ->limit(50)
-            ->get();
+            ->get()
+            ->map(function ($view) {
+                $view->is_authenticated = ! empty($view->username);
+                unset($view->username);
+
+                return $view;
+            });
 
         return Inertia::render('Manager/Stats/Video', [
             'video' => $video,

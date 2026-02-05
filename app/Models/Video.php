@@ -34,7 +34,14 @@ class Video extends Model
         'uploaded_by',
     ];
 
-    protected $appends = ['thumbnail_url', 'thumbnail_urls', 'video_url', 'author'];
+    protected $appends = [
+        'thumbnail_url',
+        'thumbnail_urls',
+        'video_url',
+        'author',
+        'access_label',
+        'upload_status_label',
+    ];
 
     protected function casts(): array
     {
@@ -140,9 +147,19 @@ class Video extends Model
         return ContentAccess::from($this->access);
     }
 
+    public function getAccessLabelAttribute(): string
+    {
+        return $this->access_enum->label();
+    }
+
     public function getUploadStatusEnumAttribute(): UploadStatus
     {
         return UploadStatus::from($this->upload_status);
+    }
+
+    public function getUploadStatusLabelAttribute(): string
+    {
+        return $this->upload_status_enum->label();
     }
 
     public function isPublished(): bool

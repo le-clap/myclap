@@ -251,7 +251,7 @@ function getPercentage(count, items) {
                             :key="view.id"
                             class="border-b border-dark-border hover:bg-[#222] transition-colors"
                         >
-                            <td class="py-3 pr-4 text-sm">{{ view.username || '-' }}</td>
+                            <td class="py-3 pr-4 text-sm">{{ view.is_authenticated ? 'Connecté' : '-' }}</td>
                             <td class="py-3 pr-4 text-sm text-gray-400">{{ formatDateTime(view.created_on) }}</td>
                             <td class="py-3 text-sm">{{
                                     view.watch_time ? formatDuration(view.watch_time) : '-'

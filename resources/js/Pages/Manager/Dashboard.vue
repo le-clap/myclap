@@ -79,7 +79,7 @@ defineProps({
                                     : 'bg-yellow-500/20 text-yellow-400'
                             ]"
                         >
-                            {{ video.upload_status === 0 ? 'Publié' : 'En cours' }}
+                            {{ video.upload_status_label }}
                         </span>
                     </Link>
                 </div>

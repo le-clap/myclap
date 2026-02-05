@@ -11,9 +11,9 @@ enum UploadStatus: int
     public function label(): string
     {
         return match ($this) {
-            self::UPLOAD_END => 'Upload terminé',
+            self::UPLOAD_END => 'Publiée',
             self::UPLOAD_INIT => 'Upload en cours',
-            self::UPLOAD_NULL => 'Pas encore uploadé',
+            self::UPLOAD_NULL => 'Non uploadée',
         };
     }
 }

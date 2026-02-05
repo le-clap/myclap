@@ -224,12 +224,12 @@ onUnmounted(() => {
             </template>
 
             <template v-else>
-                <Link
+                <a
                     href="/login"
                     class="px-4 py-2 bg-myclap-red hover:bg-[#cc0402] rounded-full text-white font-medium text-sm"
                 >
                     Se connecter
-                </Link>
+                </a>
             </template>
         </div>
     </header>
