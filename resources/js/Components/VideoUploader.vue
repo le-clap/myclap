@@ -74,12 +74,8 @@ async function uploadFile() {
             }
         )
 
-        if (!initData.success) {
-            throw new Error(initData.message || 'Erreur lors de l\'initialisation')
-        }
-
-        let startIndex = initData.payload.startIndex
-        let chunkSize = initData.payload.chunkSize || CHUNK_SIZE
+        let startIndex = initData.startIndex
+        let chunkSize = initData.chunkSize || CHUNK_SIZE
 
         status.value = 'Envoi en cours...'
 
@@ -97,15 +93,11 @@ async function uploadFile() {
                 formData
             )
 
-            if (!processData.success) {
-                throw new Error(processData.message || 'Erreur lors de l\'envoi')
-            }
-
-            startIndex = processData.payload.startIndex
-            chunkSize = processData.payload.chunkSize || chunkSize
+            startIndex = processData.startIndex
+            chunkSize = processData.chunkSize || chunkSize
             progress.value = Math.min((startIndex / file.value.size) * 100, 99)
 
-            if (processData.payload.completed) {
+            if (processData.completed) {
                 break
             }
         }
@@ -113,11 +105,6 @@ async function uploadFile() {
         // 3. Finalize
         status.value = 'Finalisation...'
         const {data: endData} = await axios.post(`/manager/videos/v/${props.videoToken}/upload/end`)
-
-        if (!endData.success) {
-            throw new Error(endData.message || 'Erreur lors de la finalisation')
-        }
-
         progress.value = 100
         status.value = 'Upload terminé !'
         uploading.value = false

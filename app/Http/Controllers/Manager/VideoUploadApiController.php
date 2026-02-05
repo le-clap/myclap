@@ -32,15 +32,9 @@ class VideoUploadApiController extends Controller
                 $request->user()->username
             );
 
-            return response()->json([
-                'success' => true,
-                'payload' => $result,
-            ]);
+            return response()->json($result);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 400);
+            return response()->json(['message' => $e->getMessage()], 500);
         }
     }
 
@@ -64,15 +58,9 @@ class VideoUploadApiController extends Controller
                 $validated['chunkSize']
             );
 
-            return response()->json([
-                'success' => true,
-                'payload' => $result,
-            ]);
+            return response()->json($result);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 400);
+            return response()->json(['message' => $e->getMessage()], 500);
         }
     }
 
@@ -85,15 +73,9 @@ class VideoUploadApiController extends Controller
         try {
             $this->uploadService->finalizeUpload($video);
 
-            return response()->json([
-                'success' => true,
-                'payload' => null,
-            ]);
+            return response()->noContent();
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 500);
+            return response()->json(['message' => $e->getMessage()], 500);
         }
     }
 
@@ -106,15 +88,9 @@ class VideoUploadApiController extends Controller
         try {
             $this->uploadService->resetUpload($video);
 
-            return response()->json([
-                'success' => true,
-                'payload' => null,
-            ]);
+            return response()->noContent();
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 500);
+            return response()->json(['message' => $e->getMessage()], 500);
         }
     }
 }

@@ -35,6 +35,7 @@ class VideoUploadService
 
             if (Storage::disk('local')->exists($upload->file_identifier)) {
                 $path = Storage::disk('local')->path($upload->file_identifier);
+                clearstatcache(true, $path);
                 $startIndex = filesize($path);
             } else {
                 // Recreate the file
@@ -68,6 +69,7 @@ class VideoUploadService
         $upload = VideoUpload::where('video_token', $video->token)->firstOrFail();
 
         $path = Storage::disk('local')->path($upload->file_identifier);
+        clearstatcache(true, $path);
         $currentSize = file_exists($path) ? filesize($path) : 0;
 
         if ($startIndex !== $currentSize) {
@@ -76,9 +78,13 @@ class VideoUploadService
 
         // Read and append the chunk
         $chunkContent = file_get_contents($chunkFile->getRealPath());
-        file_put_contents($path, $chunkContent, FILE_APPEND);
+        $written = file_put_contents($path, $chunkContent, FILE_APPEND);
 
-        $newSize = filesize($path);
+        if ($written === false) {
+            throw new \Exception("Erreur lors de l'écriture du chunk");
+        }
+
+        $newSize = $startIndex + $written;
 
         if ($newSize >= $upload->file_size) {
             return [
@@ -159,6 +165,7 @@ class VideoUploadService
         }
 
         $path = Storage::disk('local')->path($upload->file_identifier);
+        clearstatcache(true, $path);
         $currentSize = file_exists($path) ? filesize($path) : 0;
 
         return [
