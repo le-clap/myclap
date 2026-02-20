@@ -87,8 +87,7 @@ class ThumbnailService
 
         $image->scale($newWidth, $newHeight);
 
-        $filename = $this->getVariantFilename($identifier, $height);
-        $outputPath = Storage::disk('local')->path(self::THUMBNAILS_DIR.'/'.$filename);
+        $outputPath = Storage::disk('local')->path($this->getVariantPath($identifier, $height));
         $image->toJpeg(quality: 85)->save($outputPath);
     }
 
@@ -99,7 +98,7 @@ class ThumbnailService
 
     public function getVariantPath(string $identifier, int $height): string
     {
-        return self::THUMBNAILS_DIR.'/'.$this->getVariantFilename($identifier, $height);
+        return self::THUMBNAILS_DIR.'/'.$height.'/'.$this->getVariantFilename($identifier, $height);
     }
 
     public function delete(string $identifier): void
@@ -114,9 +113,11 @@ class ThumbnailService
 
     private function ensureDirectoryExists(): void
     {
-        $dir = Storage::disk('local')->path(self::THUMBNAILS_DIR);
-        if (! is_dir($dir)) {
-            mkdir($dir, 0755, true);
+        foreach (array_keys(self::SIZES) as $height) {
+            $dir = Storage::disk('local')->path(self::THUMBNAILS_DIR.'/'.$height);
+            if (! is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
         }
     }
 

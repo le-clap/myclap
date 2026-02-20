@@ -64,14 +64,14 @@ class MediaController extends Controller
         $this->authorize('view', $video);
 
         if (! $video->thumbnail_identifier) {
-            return $this->placeholderRedirect();
+            return $this->placeholderRedirect($size);
         }
 
         $thumbnailService = app(ThumbnailService::class);
         $path = $thumbnailService->getVariantPath($video->thumbnail_identifier, $size);
 
         if (! Storage::disk('local')->exists($path)) {
-            return $this->placeholderRedirect();
+            return $this->placeholderRedirect($size);
         }
 
         // X-Accel-Redirect for nginx
@@ -84,8 +84,18 @@ class MediaController extends Controller
         ]);
     }
 
-    private function placeholderRedirect()
+    private const PLACEHOLDER_MAP = [
+        1080 => 'placeholder.jpg',
+        480 => 'placeholder-480.jpg',
+        120 => 'placeholder-120.jpg',
+    ];
+
+    private function placeholderRedirect(int $size = 1080)
     {
-        return redirect('/static/myclap/thumbnail/placeholder.png');
+        $placeholder = self::PLACEHOLDER_MAP[$size] ?? self::PLACEHOLDER_MAP[1080];
+
+        return redirect('/static/myclap/thumbnail/'.$placeholder, 302, [
+            'Cache-Control' => 'public, max-age=604800',
+        ]);
     }
 }

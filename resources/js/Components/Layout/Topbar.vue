@@ -140,7 +140,7 @@ onUnmounted(() => {
                         class="flex items-center gap-3 p-3 hover:bg-dark-border cursor-pointer transition-colors"
                     >
                         <img
-                            :src="video.thumbnail_urls?.['120'] || video.thumbnail_url || '/static/myclap/thumbnail/placeholder.png'"
+                            :src="video.thumbnail_urls?.['120']"
                             :alt="video.title"
                             class="w-24 h-16 object-cover rounded"
                         />
