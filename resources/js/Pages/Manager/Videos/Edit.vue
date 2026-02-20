@@ -33,9 +33,11 @@ const form = useForm({
 })
 
 function submit() {
-    form.put(`/manager/videos/v/${props.video.token}`, {
-        forceFormData: true,
-    })
+    // With forceFormData, Laravel's form.put() doesn't work, so we need to use method spoofing.
+    form.transform(data => ({ ...data, _method: 'PUT' }))
+        .post(`/manager/videos/v/${props.video.token}`, {
+            forceFormData: true,
+        })
 }
 
 function toggleCategory(slug) {

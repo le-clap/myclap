@@ -1,11 +1,15 @@
 <script setup>
-import {ref} from 'vue'
+import {ref, computed, onUnmounted} from 'vue'
 import axios from 'axios'
 
 const props = defineProps({
     videoToken: {
         type: String,
         required: true
+    },
+    uploadProgress: {
+        type: Object,
+        default: null
     }
 })
 
@@ -14,11 +18,25 @@ const emit = defineEmits(['complete', 'error'])
 const file = ref(null)
 const uploading = ref(false)
 const progress = ref(0)
+const uploadedSize = ref(0)
+const totalSize = ref(0)
 const error = ref(null)
 const status = ref('')
 const dragOver = ref(false)
+const abortController = ref(null)
+const cancelled = ref(false)
+const resumeFileInput = ref(null)
 
-const CHUNK_SIZE = 2 * 1024 * 1024 // 2 MB chunks
+const CHUNK_SIZE = 2 * 1024 * 1024 // 2 Mio chunks
+
+const hasResumableUpload = computed(() => {
+    return props.uploadProgress && !cancelled.value && !uploading.value && progress.value < 100
+})
+
+function formatSize(bytes) {
+    if (bytes >= 1024 * 1024 * 1024) return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' Gio'
+    return (bytes / (1024 * 1024)).toFixed(2) + ' Mio'
+}
 
 function handleFileSelect(event) {
     const selectedFile = event.target.files[0]
@@ -56,30 +74,53 @@ function handleDrop(event) {
     }
 }
 
+function triggerResumeFileSelect() {
+    resumeFileInput.value.click()
+}
+
+function handleResumeFileSelect(event) {
+    const selectedFile = event.target.files[0]
+    if (selectedFile && selectedFile.type.startsWith('video/')) {
+        file.value = selectedFile
+        error.value = null
+        uploadFile()
+    } else {
+        error.value = 'Veuillez sélectionner un fichier vidéo valide'
+    }
+}
+
 async function uploadFile() {
     if (!file.value) return
 
     uploading.value = true
     progress.value = 0
+    uploadedSize.value = 0
+    totalSize.value = file.value.size
     error.value = null
     status.value = 'Initialisation...'
+    abortController.value = new AbortController()
 
     try {
-        // 1. Init upload
+        const signal = abortController.value.signal
+
         const {data: initData} = await axios.post(
             `/manager/videos/v/${props.videoToken}/upload/init`,
             {
                 fileName: file.value.name,
                 fileSize: file.value.size,
-            }
+            },
+            {signal}
         )
 
         let startIndex = initData.startIndex
         let chunkSize = initData.chunkSize || CHUNK_SIZE
 
         status.value = 'Envoi en cours...'
+        uploadedSize.value = startIndex
+        if (totalSize.value > 0) {
+            progress.value = Math.min((startIndex / totalSize.value) * 100, 99)
+        }
 
-        // 2. Upload chunks
         while (startIndex < file.value.size) {
             const chunk = file.value.slice(startIndex, startIndex + chunkSize)
 
@@ -90,27 +131,28 @@ async function uploadFile() {
 
             const {data: processData} = await axios.post(
                 `/manager/videos/v/${props.videoToken}/upload/process`,
-                formData
+                formData,
+                {signal}
             )
 
             startIndex = processData.startIndex
             chunkSize = processData.chunkSize || chunkSize
-            progress.value = Math.min((startIndex / file.value.size) * 100, 99)
+            uploadedSize.value = startIndex
+            progress.value = Math.min((startIndex / totalSize.value) * 100, 99)
 
-            if (processData.completed) {
-                break
-            }
+            if (processData.completed) break
         }
 
-        // 3. Finalize
         status.value = 'Finalisation...'
-        const {data: endData} = await axios.post(`/manager/videos/v/${props.videoToken}/upload/end`)
+        await axios.post(`/manager/videos/v/${props.videoToken}/upload/end`, null, {signal})
         progress.value = 100
+        uploadedSize.value = totalSize.value
         status.value = 'Upload terminé !'
         uploading.value = false
         emit('complete')
 
     } catch (err) {
+        if (axios.isCancel(err)) return
         error.value = err.response?.data?.message || err.message || 'Erreur lors de l\'upload'
         uploading.value = false
         status.value = ''
@@ -118,23 +160,40 @@ async function uploadFile() {
     }
 }
 
-async function resetUpload() {
+async function cancelUpload() {
+    if (abortController.value) {
+        abortController.value.abort()
+        abortController.value = null
+    }
+    uploading.value = false
+    status.value = ''
+    error.value = null
+
     try {
         await axios.post(`/manager/videos/v/${props.videoToken}/upload/reset`)
-        file.value = null
-        progress.value = 0
-        error.value = null
-        status.value = ''
-    } catch (err) {
-        error.value = 'Erreur lors de la réinitialisation'
-    }
+    } catch (_) {}
+
+    file.value = null
+    progress.value = 0
+    uploadedSize.value = 0
+    totalSize.value = 0
+    cancelled.value = true
 }
+
+onUnmounted(() => {
+    if (abortController.value) {
+        abortController.value.abort()
+        abortController.value = null
+    }
+    uploading.value = false
+    status.value = ''
+})
 </script>
 
 <template>
     <div class="video-uploader">
-        <!-- File selection -->
-        <div v-if="!uploading && !error" class="space-y-4">
+        <!-- File selection (idle) -->
+        <div v-if="!uploading && !error && !hasResumableUpload && progress < 100" class="space-y-4">
             <div
                 @dragover="handleDragOver"
                 @dragleave="handleDragLeave"
@@ -159,7 +218,7 @@ async function resetUpload() {
                         <span v-else>{{ dragOver ? 'Déposez votre vidéo ici' : 'Cliquez ou déposez une vidéo' }}</span>
                     </p>
                     <p v-if="file" class="text-sm text-gray-500 mt-2">
-                        {{ (file.size / (1024 * 1024)).toFixed(2) }} MB
+                        {{ formatSize(file.size) }}
                     </p>
                 </label>
             </div>
@@ -173,9 +232,56 @@ async function resetUpload() {
             </button>
         </div>
 
-        <!-- Upload progress -->
+        <!-- Resumable upload (upload_status=1, not actively sending) -->
+        <div v-if="hasResumableUpload" class="space-y-4">
+            <div class="flex justify-between items-baseline">
+                <span class="text-gray-400">Upload interrompu</span>
+                <span class="text-gray-400 text-sm">
+                    {{ formatSize(uploadProgress.uploadedSize) }} / {{ formatSize(uploadProgress.fileSize) }}
+                </span>
+            </div>
+            <div class="relative h-4 bg-dark-border rounded-full overflow-hidden">
+                <div
+                    class="absolute inset-y-0 left-0 bg-myclap-red"
+                    :style="{ width: uploadProgress.percentage + '%' }"
+                ></div>
+            </div>
+            <div class="text-center text-xl font-bold">{{ Math.round(uploadProgress.percentage) }}%</div>
+            <p class="text-sm text-gray-400 text-center">{{ uploadProgress.fileName }}</p>
+            <div v-if="error" class="bg-red-900/20 border border-red-500 rounded-lg p-4 text-red-400">
+                {{ error }}
+            </div>
+            <div class="flex gap-3">
+                <button
+                    @click="triggerResumeFileSelect"
+                    class="flex-1 py-3 bg-myclap-red hover:bg-[#cc0402] text-white font-medium rounded-lg transition-colors"
+                >
+                    Reprendre l'upload
+                </button>
+                <button
+                    @click="cancelUpload"
+                    class="flex-1 py-3 bg-[#3a3a3a] hover:bg-[#4a4a4a] text-white font-medium rounded-lg transition-colors"
+                >
+                    Annuler l'upload
+                </button>
+            </div>
+            <input
+                ref="resumeFileInput"
+                type="file"
+                accept="video/*"
+                @change="handleResumeFileSelect"
+                class="hidden"
+            />
+        </div>
+
+        <!-- Upload progress (actively sending) -->
         <div v-if="uploading" class="space-y-4">
-            <div class="text-center text-gray-400">{{ status }}</div>
+            <div class="flex justify-between items-baseline">
+                <span class="text-gray-400">{{ status }}</span>
+                <span class="text-gray-400 text-sm">
+                    {{ formatSize(uploadedSize) }} / {{ formatSize(totalSize) }}
+                </span>
+            </div>
             <div class="relative h-4 bg-dark-border rounded-full overflow-hidden">
                 <div
                     class="absolute inset-y-0 left-0 bg-myclap-red transition-all duration-300"
@@ -183,18 +289,24 @@ async function resetUpload() {
                 ></div>
             </div>
             <div class="text-center text-xl font-bold">{{ Math.round(progress) }}%</div>
+            <button
+                @click="cancelUpload"
+                class="w-full py-3 bg-[#3a3a3a] hover:bg-[#4a4a4a] text-white font-medium rounded-lg transition-colors"
+            >
+                Annuler l'upload
+            </button>
         </div>
 
-        <!-- Error state -->
-        <div v-if="error" class="space-y-4">
+        <!-- Error state (no resumable upload) -->
+        <div v-if="error && !hasResumableUpload" class="space-y-4">
             <div class="bg-red-900/20 border border-red-500 rounded-lg p-4 text-red-400">
                 {{ error }}
             </div>
             <button
-                @click="resetUpload"
+                @click="cancelUpload"
                 class="w-full py-3 bg-[#3a3a3a] hover:bg-[#4a4a4a] text-white font-medium rounded-lg transition-colors"
             >
-                Réessayer
+                Annuler l'upload
             </button>
         </div>
 

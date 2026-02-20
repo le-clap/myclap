@@ -81,7 +81,7 @@ function getPercentage(count, items) {
                     <div class="mt-3 text-sm text-gray-400 space-y-1">
                         <div><span class="text-gray-500">Auteur:</span> {{ video.author }}</div>
                         <div><span class="text-gray-500">Durée:</span> {{ formatDuration(video.duration) }}</div>
-                        <div><span class="text-gray-500">Accès:</span> {{ video.access }}</div>
+                        <div><span class="text-gray-500">Accès:</span> {{ video.access_label }}</div>
                         <div><span class="text-gray-500">Uploadée le:</span> {{ formatDate(video.uploaded_on) }}</div>
                     </div>
                 </div>
