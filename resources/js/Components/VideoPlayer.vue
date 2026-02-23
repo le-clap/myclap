@@ -139,7 +139,6 @@ onUnmounted(() => {
         <video
             ref="playerElement"
             :poster="video.thumbnail_url"
-            playsinline
             controls
             class="w-full rounded-lg"
         >

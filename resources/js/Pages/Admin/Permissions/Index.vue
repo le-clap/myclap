@@ -137,7 +137,7 @@ function goToUser(username) {
                         <input
                             v-model="userSearchQuery"
                             type="text"
-                            placeholder="Nom, prénom, username ou email..."
+                            placeholder="Username, nom, prénom..."
                             class="w-full bg-dark-border border border-[#3a3a3a] rounded-lg px-4 py-2 text-white focus:outline-none focus:border-myclap-red"
                         />
                         <div v-if="isSearching" class="absolute right-3 top-1/2 -translate-y-1/2">
@@ -161,7 +161,6 @@ function goToUser(username) {
                             <tr>
                                 <th class="text-left px-4 py-2 text-sm">Username</th>
                                 <th class="text-left px-4 py-2 text-sm">Nom</th>
-                                <th class="text-left px-4 py-2 text-sm">Email</th>
                                 <th class="text-left px-4 py-2 text-sm">Promo</th>
                                 <th class="px-4 py-2 w-24"></th>
                             </tr>
