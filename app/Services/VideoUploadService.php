@@ -137,7 +137,7 @@ class VideoUploadService
         $video->uploaded_on = now();
         $video->save();
 
-        $this->videoService->updateDuration($video);
+        $this->videoService->updateMetadata($video);
         $upload->delete();
     }
 

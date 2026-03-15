@@ -109,9 +109,9 @@ class VideoController extends Controller
 
         $this->authorize('update', $video);
 
-        // Check and update duration if file might have changed
+        // Check and update file metadata for the file might have changed
         if ($video->file_identifier) {
-            $this->videoService->checkAndUpdateDuration($video);
+            $this->videoService->checkAndUpdateMetadata($video);
         }
 
         $categories = Category::orderBy('label')->get();

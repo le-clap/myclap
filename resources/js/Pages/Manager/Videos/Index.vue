@@ -2,6 +2,7 @@
 import {Head, Link} from '@inertiajs/vue3'
 import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
 import {formatDuration} from '@/utils/date'
+import {computeBitrate, formatBitrate, formatFileSize} from '@/utils/video'
 
 defineProps({
     videos: {
@@ -21,6 +22,10 @@ function getStatusClass(status) {
         default:
             return 'bg-gray-500/20 text-gray-400'
     }
+}
+
+function getVideoBitrate(video) {
+    return computeBitrate(video.file_size, video.duration)
 }
 </script>
 
@@ -58,6 +63,8 @@ function getStatusClass(status) {
                         <div class="font-medium truncate">{{ video.name }}</div>
                         <div class="text-sm text-gray-400 mt-1 flex items-center gap-1">
                             <span v-if="video.duration" class="mr-1">{{ formatDuration(video.duration) }} •</span>
+                            <span v-if="video.file_size" class="mr-1">{{ formatFileSize(video.file_size) }} •</span>
+                            <span v-if="getVideoBitrate(video)" class="mr-1">{{ formatBitrate(getVideoBitrate(video)) }} •</span>
                             {{ video.views?.toLocaleString() || 0 }} vues •
                             {{ video.reactions?.toLocaleString() || 0 }}
                             <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
