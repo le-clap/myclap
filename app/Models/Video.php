@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ContentAccess;
 use App\Enums\UploadStatus;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -42,6 +43,7 @@ class Video extends Model
         'author',
         'access_label',
         'upload_status_label',
+        'bitrate',
     ];
 
     protected function casts(): array
@@ -117,72 +119,66 @@ class Video extends Model
     }
 
     // Accessors
-    public function getAuthorAttribute(): string
+    protected function author(): Attribute
     {
-        return $this->uploaded_by;
+        return Attribute::make(get: fn () => $this->uploaded_by);
     }
 
-    public function getThumbnailUrlAttribute(): string
+    protected function thumbnailUrl(): Attribute
     {
-        return route('watch.media.thumbnail', [
-            'token' => $this->token,
-            'size' => 1080,
-        ]);
+        return Attribute::make(
+            get: fn () => route('watch.media.thumbnail', ['token' => $this->token, 'size' => 1080])
+        );
     }
 
-    public function getThumbnailUrlsAttribute(): array
+    protected function thumbnailUrls(): Attribute
     {
-        return [
+        return Attribute::make(get: fn () => [
             '1080' => route('watch.media.thumbnail', ['token' => $this->token, 'size' => 1080]),
             '480' => route('watch.media.thumbnail', ['token' => $this->token, 'size' => 480]),
             '120' => route('watch.media.thumbnail', ['token' => $this->token, 'size' => 120]),
-        ];
+        ]);
     }
 
-    public function getVideoUrlAttribute(): string
+    protected function videoUrl(): Attribute
     {
-        return route('watch.media.video', ['token' => $this->token]);
+        return Attribute::make(get: fn () => route('watch.media.video', ['token' => $this->token]));
     }
 
-    public function getAccessEnumAttribute(): ContentAccess
+    protected function bitrate(): Attribute
     {
-        return ContentAccess::from($this->access);
+        return Attribute::make(get: function () {
+            if (! $this->file_size || ! $this->duration || $this->duration <= 0) {
+                return null;
+            }
+
+            return ($this->file_size * 8) / $this->duration;
+        });
     }
 
-    public function getAccessLabelAttribute(): string
+    protected function accessEnum(): Attribute
     {
-        return $this->access_enum->label();
+        return Attribute::make(get: fn () => ContentAccess::from($this->access));
     }
 
-    public function getUploadStatusEnumAttribute(): UploadStatus
+    protected function accessLabel(): Attribute
     {
-        return UploadStatus::from($this->upload_status);
+        return Attribute::make(get: fn () => $this->access_enum->label());
     }
 
-    public function getUploadStatusLabelAttribute(): string
+    protected function uploadStatusEnum(): Attribute
     {
-        return $this->upload_status_enum->label();
+        return Attribute::make(get: fn () => UploadStatus::from($this->upload_status));
     }
 
-    public function isPublished(): bool
+    protected function uploadStatusLabel(): Attribute
     {
-        return $this->upload_status === UploadStatus::UPLOAD_END->value;
+        return Attribute::make(get: fn () => $this->upload_status_enum->label());
     }
 
-    /**
-     * Sync categories with the video using slugs.
-     */
     public function syncCategories(array $categorySlugs): void
     {
         $validSlugs = Category::whereIn('slug', $categorySlugs)->pluck('slug')->toArray();
-
-        \DB::table('video_category')->where('video_token', $this->token)->delete();
-
-        foreach ($validSlugs as $slug) {
-            \DB::table('video_category')->insert([
-                'video_token' => $this->token,
-                'category_slug' => $slug,
-            ]);
-        }
+        $this->categories()->sync($validSlugs);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ContentAccess;
 use App\Enums\PlaylistType;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -80,15 +81,12 @@ class Playlist extends Model
      */
     public function syncVideosWithOrder(array $tokens): void
     {
-        \DB::table('playlist_video')->where('playlist_slug', $this->slug)->delete();
-
+        $syncData = [];
         foreach ($tokens as $position => $token) {
-            \DB::table('playlist_video')->insert([
-                'playlist_slug' => $this->slug,
-                'video_token' => $token,
-                'position' => $position,
-            ]);
+            $syncData[$token] = ['position' => $position];
         }
+
+        $this->videos()->sync($syncData);
     }
 
     /**
@@ -104,14 +102,18 @@ class Playlist extends Model
         return $this->belongsTo(User::class, 'modified_by', 'username');
     }
 
-    public function getTypeEnumAttribute(): PlaylistType
+    protected function typeEnum(): Attribute
     {
-        return PlaylistType::from($this->type);
+        return Attribute::make(
+            get: fn () => PlaylistType::from($this->type),
+        );
     }
 
-    public function getAccessEnumAttribute(): ContentAccess
+    protected function accessEnum(): Attribute
     {
-        return ContentAccess::from($this->access);
+        return Attribute::make(
+            get: fn () => ContentAccess::from($this->access),
+        );
     }
 
     public function isBroadcast(): bool
@@ -124,10 +126,14 @@ class Playlist extends Model
         return $this->type === PlaylistType::CLASSIC->value;
     }
 
-    public function getFirstVideoThumbnailAttribute(): ?string
+    protected function firstVideoThumbnail(): Attribute
     {
-        $firstVideo = $this->videos()->published()->first();
+        return Attribute::make(
+            get: function (): ?string {
+                $firstVideo = $this->videos()->published()->first();
 
-        return $firstVideo?->thumbnail_urls['480'] ?? $firstVideo?->thumbnail_url;
+                return $firstVideo?->thumbnail_urls['480'] ?? $firstVideo?->thumbnail_url;
+            },
+        );
     }
 }

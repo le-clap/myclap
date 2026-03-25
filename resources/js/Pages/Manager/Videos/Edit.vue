@@ -3,7 +3,7 @@ import {Head, Link, router, useForm} from '@inertiajs/vue3'
 import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
 import DatePicker from '@/Components/DatePicker.vue'
 import {formatDuration} from '@/utils/date'
-import {computeBitrate, formatBitrate, formatFileSize} from '@/utils/video'
+import {formatBitrate, formatFileSize} from '@/utils/video'
 
 const props = defineProps({
     video: {
@@ -68,10 +68,6 @@ function deleteVideo() {
         router.delete(`/manager/videos/v/${props.video.token}`)
     }
 }
-
-function getVideoBitrate(video) {
-    return computeBitrate(video.file_size, video.duration)
-}
 </script>
 
 <template>
@@ -111,9 +107,9 @@ function getVideoBitrate(video) {
                     <code v-if="video.file_size" class="bg-dark-border px-2 py-1 rounded">
                         {{ formatFileSize(video.file_size) }}
                     </code>
-                    <span v-if="getVideoBitrate(video)" class="text-sm text-gray-400">Bitrate:</span>
-                    <code v-if="getVideoBitrate(video)" class="bg-dark-border px-2 py-1 rounded">
-                        {{ formatBitrate(getVideoBitrate(video)) }}
+                    <span v-if="video.bitrate" class="text-sm text-gray-400">Bitrate:</span>
+                    <code v-if="video.bitrate" class="bg-dark-border px-2 py-1 rounded">
+                        {{ formatBitrate(video.bitrate) }}
                     </code>
                     <span :class="['ml-auto px-2 py-1 rounded', getStatusClass(video.upload_status)]">
                         {{ video.upload_status_label }}
