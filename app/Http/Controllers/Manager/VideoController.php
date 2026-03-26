@@ -18,7 +18,8 @@ use Inertia\Inertia;
 class VideoController extends Controller
 {
     public function __construct(
-        private readonly VideoService $videoService
+        private readonly VideoService $videoService,
+        private readonly ThumbnailService $thumbnailService
     ) {}
 
     public function index(Request $request)
@@ -29,10 +30,70 @@ class VideoController extends Controller
             abort(403);
         }
 
-        $videos = Video::orderBy('uploaded_on', 'desc')->get();
+        $validated = $request->validate([
+            'q' => 'nullable|string|max:100',
+            'sort' => 'nullable|string|max:50',
+            'limit' => 'nullable|integer|min:12|max:120',
+        ]);
+
+        $query = trim((string) ($validated['q'] ?? ''));
+        $sort = (string) ($validated['sort'] ?? '-uploaded_on');
+        $limit = (int) ($validated['limit'] ?? 24);
+
+        $sortDir = str_starts_with($sort, '-') ? 'desc' : 'asc';
+        $sortBy = ltrim($sort, '-');
+
+        $allowedSortFields = [
+            'uploaded_on',
+            'created_on',
+            'name',
+            'views',
+            'reactions',
+            'duration',
+            'file_size',
+            'bitrate',
+            'access',
+            'upload_status',
+        ];
+
+        if (! in_array($sortBy, $allowedSortFields, true)) {
+            $sortBy = 'uploaded_on';
+            $sortDir = 'desc';
+        }
+
+        $videosQuery = Video::query();
+
+        if ($query !== '') {
+            $videosQuery->where(function ($q) use ($query) {
+                $q->where('name', 'ILIKE', "%{$query}%")
+                    ->orWhere('token', 'ILIKE', "%{$query}%");
+            });
+        }
+
+        if ($sortBy === 'bitrate') {
+            $videosQuery
+                ->orderByRaw('CASE WHEN duration IS NULL OR duration = 0 OR file_size IS NULL THEN 1 ELSE 0 END ASC')
+                ->orderByRaw('(file_size * 1.0) / NULLIF(duration, 0) '.strtoupper($sortDir));
+        } else {
+            $videosQuery->orderBy($sortBy, $sortDir);
+        }
+
+        if ($sortBy !== 'uploaded_on') {
+            $videosQuery->orderByDesc('uploaded_on');
+        }
+
+        $videos = $videosQuery
+            ->paginate($limit)
+            ->withQueryString();
 
         return Inertia::render('Manager/Videos/Index', [
             'videos' => $videos,
+            'filters' => [
+                'q' => $query,
+                'sort' => $sort,
+                'limit' => $limit,
+            ],
+            'sortOptions' => $this->getSortOptions(),
         ]);
     }
 
@@ -44,10 +105,8 @@ class VideoController extends Controller
             abort(403);
         }
 
-        $categories = Category::orderBy('label')->get();
-
         return Inertia::render('Manager/Videos/Create', [
-            'categories' => $categories,
+            'categories' => Category::orderBy('label')->get(),
             'accessOptions' => ContentAccess::options(),
         ]);
     }
@@ -77,9 +136,8 @@ class VideoController extends Controller
 
         $thumbnailIdentifier = null;
         if ($request->hasFile('thumbnail')) {
-            $thumbnailService = app(ThumbnailService::class);
             try {
-                $thumbnailIdentifier = $thumbnailService->store($request->file('thumbnail'));
+                $thumbnailIdentifier = $this->thumbnailService->store($request->file('thumbnail'));
             } catch (\Exception $e) {
                 return back()->withErrors(['thumbnail' => $e->getMessage()]);
             }
@@ -95,9 +153,7 @@ class VideoController extends Controller
             'created_on' => $validated['created_on'],
         ]);
 
-        // Sync categories
-        $categorySlugs = $validated['categories'] ?? [];
-        $video->syncCategories($categorySlugs);
+        $video->syncCategories($validated['categories'] ?? []);
 
         return redirect()->route('manager.videos.upload', $video->token)
             ->with('success', 'Vidéo créée. Vous pouvez maintenant envoyer le fichier vidéo.');
@@ -109,20 +165,15 @@ class VideoController extends Controller
 
         $this->authorize('update', $video);
 
-        // Check and update duration if file might have changed
+        // Check and update file metadata for the file might have changed
         if ($video->file_identifier) {
-            $this->videoService->checkAndUpdateDuration($video);
+            $this->videoService->checkAndUpdateMetadata($video);
         }
-
-        $categories = Category::orderBy('label')->get();
-
-        // Get video's current category slugs
-        $videoCategorySlugs = $video->categories->pluck('slug')->toArray();
 
         return Inertia::render('Manager/Videos/Edit', [
             'video' => $video,
-            'videoCategorySlugs' => $videoCategorySlugs,
-            'categories' => $categories,
+            'videoCategorySlugs' => $video->categories->pluck('slug')->toArray(),
+            'categories' => Category::orderBy('label')->get(),
             'accessOptions' => ContentAccess::options(),
         ]);
     }
@@ -142,25 +193,24 @@ class VideoController extends Controller
             'thumbnail' => 'nullable|image|max:10240',
         ]);
 
-        $video->name = $validated['name'];
-        $video->description = $validated['description'] ?: null;
-        $video->created_on = $validated['created_on'];
-        $video->access = $validated['access'];
+        $video->fill([
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?: null,
+            'created_on' => $validated['created_on'],
+            'access' => $validated['access'],
+        ]);
 
-        // Sync categories
-        $categorySlugs = $validated['categories'] ?? [];
-        $video->syncCategories($categorySlugs);
+        $video->syncCategories($validated['categories'] ?? []);
 
         if ($request->hasFile('thumbnail')) {
-            $thumbnailService = app(ThumbnailService::class);
 
             // Delete old thumbnails
             if ($video->thumbnail_identifier) {
-                $thumbnailService->delete($video->thumbnail_identifier);
+                $this->thumbnailService->delete($video->thumbnail_identifier);
             }
 
             try {
-                $video->thumbnail_identifier = $thumbnailService->store($request->file('thumbnail'));
+                $video->thumbnail_identifier = $this->thumbnailService->store($request->file('thumbnail'));
             } catch (\Exception $e) {
                 return back()->withErrors(['thumbnail' => $e->getMessage()]);
             }
@@ -219,8 +269,7 @@ class VideoController extends Controller
 
         // Delete thumbnails
         if ($video->thumbnail_identifier) {
-            $thumbnailService = app(ThumbnailService::class);
-            $thumbnailService->delete($video->thumbnail_identifier);
+            $this->thumbnailService->delete($video->thumbnail_identifier);
         }
 
         // Delete upload if exists
@@ -230,5 +279,21 @@ class VideoController extends Controller
 
         return redirect()->route('manager.videos.index')
             ->with('success', 'La vidéo a bien été supprimée');
+    }
+
+    private function getSortOptions(): array
+    {
+        return [
+            ['value' => 'uploaded_on', 'label' => "Date d'upload"],
+            ['value' => 'created_on', 'label' => 'Date de référence'],
+            ['value' => 'name', 'label' => 'Nom'],
+            ['value' => 'views', 'label' => 'Vues'],
+            ['value' => 'reactions', 'label' => 'Réactions'],
+            ['value' => 'duration', 'label' => 'Durée'],
+            ['value' => 'file_size', 'label' => 'Poids'],
+            ['value' => 'bitrate', 'label' => 'Bitrate'],
+            ['value' => 'access', 'label' => 'Accès'],
+            ['value' => 'upload_status', 'label' => "Statut d'upload"],
+        ];
     }
 }

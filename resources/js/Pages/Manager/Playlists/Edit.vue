@@ -1,6 +1,6 @@
 <script setup>
 import {Head, router, useForm} from '@inertiajs/vue3'
-import {ref} from 'vue'
+import {onBeforeUnmount, onMounted, ref} from 'vue'
 import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
 import axios from 'axios'
 
@@ -36,14 +36,19 @@ const selectedVideos = ref([...props.playlistVideos])
 const searchQuery = ref('')
 const searchResults = ref([])
 const searching = ref(false)
+const isSearchDropdownOpen = ref(false)
+const searchContainer = ref(null)
 
 async function searchVideos() {
     if (searchQuery.value.length < 2) {
         searchResults.value = []
+        isSearchDropdownOpen.value = false
         return
     }
 
     searching.value = true
+    isSearchDropdownOpen.value = true
+
     try {
         const {data} = await axios.get('/manager/playlists/api/search', {
             params: {
@@ -65,6 +70,18 @@ function addVideo(video) {
     selectedVideos.value.push(video)
     searchResults.value = searchResults.value.filter(v => v.token !== video.token)
     searchQuery.value = ''
+}
+
+function handleDocumentClick(event) {
+    if (searchContainer.value && !searchContainer.value.contains(event.target)) {
+        isSearchDropdownOpen.value = false
+    }
+}
+
+function openSearchDropdown() {
+    if (searchResults.value.length > 0) {
+        isSearchDropdownOpen.value = true
+    }
 }
 
 function removeVideo(token) {
@@ -96,6 +113,14 @@ function deletePlaylist() {
         router.delete(`/manager/playlists/s/${props.playlist.slug}`)
     }
 }
+
+onMounted(() => {
+    document.addEventListener('click', handleDocumentClick)
+})
+
+onBeforeUnmount(() => {
+    document.removeEventListener('click', handleDocumentClick)
+})
 </script>
 
 <template>
@@ -178,15 +203,16 @@ function deletePlaylist() {
                         <label class="block text-sm font-medium mb-2">Vidéos de la playlist</label>
 
                         <!-- Search -->
-                        <div class="relative mb-4">
+                        <div ref="searchContainer" class="relative mb-4">
                             <input
                                 v-model="searchQuery"
                                 @input="searchVideos"
+                                @focus="openSearchDropdown"
                                 type="text"
                                 placeholder="Ajouter une vidéo..."
                                 class="w-full bg-dark-surface border border-[#3a3a3a] rounded-lg px-4 py-2 text-white focus:outline-none focus:border-myclap-red"
                             />
-                            <div v-if="searchResults.length > 0"
+                            <div v-if="isSearchDropdownOpen && searchResults.length > 0"
                                  class="absolute z-10 w-full mt-1 bg-dark-surface border border-[#3a3a3a] rounded-lg max-h-48 overflow-y-auto">
                                 <button
                                     v-for="video in searchResults"

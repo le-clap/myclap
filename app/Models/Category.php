@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ContentAccess;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
@@ -57,8 +58,10 @@ class Category extends Model
         return $query;
     }
 
-    public function getVideoCountAttribute(): int
+    protected function videoCount(): Attribute
     {
-        return $this->videos()->published()->count();
+        return Attribute::make(
+            get: fn (): int => $this->videos()->published()->count(),
+        );
     }
 }

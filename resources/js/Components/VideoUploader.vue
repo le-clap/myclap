@@ -1,6 +1,7 @@
 <script setup>
 import {ref, computed, onUnmounted} from 'vue'
 import axios from 'axios'
+import {formatFileSize} from '@/utils/video'
 
 const props = defineProps({
     videoToken: {
@@ -33,19 +34,19 @@ const hasResumableUpload = computed(() => {
     return props.uploadProgress && !cancelled.value && !uploading.value && progress.value < 100
 })
 
-function formatSize(bytes) {
-    if (bytes >= 1024 * 1024 * 1024) return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' Gio'
-    return (bytes / (1024 * 1024)).toFixed(2) + ' Mio'
-}
-
-function handleFileSelect(event) {
-    const selectedFile = event.target.files[0]
+function setSelectedFile(selectedFile) {
     if (selectedFile && selectedFile.type.startsWith('video/')) {
         file.value = selectedFile
         error.value = null
     } else {
+        file.value = null
         error.value = 'Veuillez sélectionner un fichier vidéo valide'
     }
+}
+
+function handleFileSelect(event) {
+    const selectedFile = event.target.files[0]
+    setSelectedFile(selectedFile)
 }
 
 function handleDragOver(event) {
@@ -66,12 +67,7 @@ function handleDrop(event) {
     dragOver.value = false
 
     const droppedFile = event.dataTransfer.files[0]
-    if (droppedFile && droppedFile.type.startsWith('video/')) {
-        file.value = droppedFile
-        error.value = null
-    } else {
-        error.value = 'Veuillez déposer un fichier vidéo valide'
-    }
+    setSelectedFile(droppedFile)
 }
 
 function triggerResumeFileSelect() {
@@ -80,12 +76,10 @@ function triggerResumeFileSelect() {
 
 function handleResumeFileSelect(event) {
     const selectedFile = event.target.files[0]
-    if (selectedFile && selectedFile.type.startsWith('video/')) {
-        file.value = selectedFile
-        error.value = null
+    setSelectedFile(selectedFile)
+
+    if (file.value) {
         uploadFile()
-    } else {
-        error.value = 'Veuillez sélectionner un fichier vidéo valide'
     }
 }
 
@@ -218,7 +212,7 @@ onUnmounted(() => {
                         <span v-else>{{ dragOver ? 'Déposez votre vidéo ici' : 'Cliquez ou déposez une vidéo' }}</span>
                     </p>
                     <p v-if="file" class="text-sm text-gray-500 mt-2">
-                        {{ formatSize(file.size) }}
+                        {{ formatFileSize(file.size) }}
                     </p>
                 </label>
             </div>
@@ -237,7 +231,7 @@ onUnmounted(() => {
             <div class="flex justify-between items-baseline">
                 <span class="text-gray-400">Upload interrompu</span>
                 <span class="text-gray-400 text-sm">
-                    {{ formatSize(uploadProgress.uploadedSize) }} / {{ formatSize(uploadProgress.fileSize) }}
+                    {{ formatFileSize(uploadProgress.uploadedSize) }} / {{ formatFileSize(uploadProgress.fileSize) }}
                 </span>
             </div>
             <div class="relative h-4 bg-dark-border rounded-full overflow-hidden">
@@ -279,7 +273,7 @@ onUnmounted(() => {
             <div class="flex justify-between items-baseline">
                 <span class="text-gray-400">{{ status }}</span>
                 <span class="text-gray-400 text-sm">
-                    {{ formatSize(uploadedSize) }} / {{ formatSize(totalSize) }}
+                    {{ formatFileSize(uploadedSize) }} / {{ formatFileSize(totalSize) }}
                 </span>
             </div>
             <div class="relative h-4 bg-dark-border rounded-full overflow-hidden">

@@ -100,7 +100,6 @@ class PlaylistController extends Controller
             'access' => 'required|integer|in:0,1,2,3',
             'pinned' => 'boolean',
             'videos' => 'nullable|array',
-            'created_on' => 'required|date',
         ]);
 
         // Validate video tokens
@@ -116,7 +115,6 @@ class PlaylistController extends Controller
             'access' => $validated['access'],
             'pinned' => $validated['pinned'] ?? false,
             'modified_by' => $request->user()->username,
-            'created_on' => $validated['created_on'],
             'modified_on' => now(),
         ]);
 

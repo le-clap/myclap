@@ -3,6 +3,7 @@ import {Head, Link, router, useForm} from '@inertiajs/vue3'
 import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
 import DatePicker from '@/Components/DatePicker.vue'
 import {formatDuration} from '@/utils/date'
+import {formatBitrate, formatFileSize} from '@/utils/video'
 
 const props = defineProps({
     video: {
@@ -31,6 +32,19 @@ const form = useForm({
     access: props.video.access ?? 3,
     thumbnail: null,
 })
+
+function getStatusClass(status) {
+    switch (status) {
+        case 0:
+            return 'bg-green-500/20 text-green-400'
+        case 1:
+            return 'bg-yellow-500/20 text-yellow-400'
+        case 2:
+            return 'bg-gray-500/20 text-gray-400'
+        default:
+            return 'bg-gray-500/20 text-gray-400'
+    }
+}
 
 function submit() {
     // With forceFormData, Laravel's form.put() doesn't work, so we need to use method spoofing.
@@ -89,15 +103,16 @@ function deleteVideo() {
                     <code v-if="video.duration" class="bg-dark-border px-2 py-1 rounded">
                         {{ formatDuration(video.duration) }}
                     </code>
-                    <span
-                        :class="[
-                            'px-2 py-1 rounded text-xs',
-                            video.upload_status === 0
-                                ? 'bg-green-500/20 text-green-400'
-                                : 'bg-yellow-500/20 text-yellow-400'
-                        ]"
-                    >
-                        {{ video.upload_status === 0 ? 'Publié' : 'En attente d\'upload' }}
+                    <span v-if="video.file_size" class="text-sm text-gray-400">Poids:</span>
+                    <code v-if="video.file_size" class="bg-dark-border px-2 py-1 rounded">
+                        {{ formatFileSize(video.file_size) }}
+                    </code>
+                    <span v-if="video.bitrate" class="text-sm text-gray-400">Bitrate:</span>
+                    <code v-if="video.bitrate" class="bg-dark-border px-2 py-1 rounded">
+                        {{ formatBitrate(video.bitrate) }}
+                    </code>
+                    <span :class="['ml-auto px-2 py-1 rounded', getStatusClass(video.upload_status)]">
+                        {{ video.upload_status_label }}
                     </span>
                 </div>
             </div>
