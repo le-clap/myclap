@@ -85,6 +85,7 @@ Route::prefix('manager')->name('manager.')->middleware(['auth', 'permission_grou
         // Playlists API
         Route::post('/playlists', [PlaylistController::class, 'store'])->name('playlists.store');
         Route::put('/playlists/s/{slug}', [PlaylistController::class, 'update'])->name('playlists.update');
+        Route::post('/playlists/s/{slug}/move', [PlaylistController::class, 'move'])->name('playlists.move');
         Route::delete('/playlists/s/{slug}', [PlaylistController::class, 'destroy'])->name('playlists.destroy');
         Route::get('/playlists/api/search', [PlaylistController::class, 'searchVideos'])->name('playlists.api.search');
     });

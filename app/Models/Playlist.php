@@ -4,14 +4,19 @@ namespace App\Models;
 
 use App\Enums\ContentAccess;
 use App\Enums\PlaylistType;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
+use Spatie\EloquentSortable\Sortable;
+use Spatie\EloquentSortable\SortableTrait;
 
-class Playlist extends Model
+class Playlist extends Model implements Sortable
 {
+    use SortableTrait;
+
     protected $table = 'playlist';
 
     protected $primaryKey = 'id';
@@ -25,10 +30,15 @@ class Playlist extends Model
         'banner_identifier',
         'type',
         'access',
-        'pinned',
+        'position',
         'created_on',
         'modified_on',
         'modified_by',
+    ];
+
+    protected $appends = [
+        'type_label',
+        'access_label',
     ];
 
     protected function casts(): array
@@ -38,8 +48,27 @@ class Playlist extends Model
             'modified_on' => 'datetime',
             'type' => 'integer',
             'access' => 'integer',
-            'pinned' => 'boolean',
+            'position' => 'integer',
         ];
+    }
+
+    public array $sortable = [
+        'order_column_name' => 'position',
+        'sort_when_creating' => true,
+    ];
+
+    public function scopeOrderedForDisplay(Builder $query): Builder
+    {
+        return $query
+            ->orderByDesc('type')
+            ->ordered()
+            ->orderBy('name')
+            ->orderBy('id');
+    }
+
+    public function buildSortQuery(): Builder
+    {
+        return static::query()->where('type', $this->type);
     }
 
     public function videos(): BelongsToMany
@@ -109,11 +138,21 @@ class Playlist extends Model
         );
     }
 
+    protected function typeLabel(): Attribute
+    {
+        return Attribute::make(get: fn () => $this->type_enum->label());
+    }
+
     protected function accessEnum(): Attribute
     {
         return Attribute::make(
             get: fn () => ContentAccess::from($this->access),
         );
+    }
+
+    protected function accessLabel(): Attribute
+    {
+        return Attribute::make(get: fn () => $this->access_enum->label());
     }
 
     public function isBroadcast(): bool

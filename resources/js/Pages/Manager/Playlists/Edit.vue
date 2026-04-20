@@ -28,7 +28,6 @@ const form = useForm({
     description: props.playlist.description || '',
     type: props.playlist.type || 0,
     access: props.playlist.access || 'Public',
-    pinned: props.playlist.pinned || false,
     videos: props.playlistVideos.map(v => v.token),
 })
 
@@ -175,26 +174,6 @@ onBeforeUnmount(() => {
                                     {{ opt.label }}
                                 </option>
                             </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium mb-2">Mise en avant</label>
-                            <button
-                                type="button"
-                                @click="form.pinned = !form.pinned"
-                                :class="[
-                                    'flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors',
-                                    form.pinned
-                                        ? 'bg-myclap-red text-white'
-                                        : 'bg-dark-border text-gray-300 hover:bg-[#3a3a3a]'
-                                ]"
-                            >
-                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                        d="M16 4a1 1 0 0 1 .117 1.993L16 6v4.379l1.707 1.707a1 1 0 0 1 .293.707V14a1 1 0 0 1-.883.993L17 15h-4v5a1 1 0 0 1-1.993.117L11 20v-5H7a1 1 0 0 1-.993-.883L6 14v-1.207a1 1 0 0 1 .293-.707L8 10.379V6a1 1 0 0 1-.117-1.993L8 4h8z"/>
-                                </svg>
-                                Épingler en haut de la liste
-                            </button>
                         </div>
                     </div>
 
