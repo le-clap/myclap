@@ -36,7 +36,7 @@ defineProps({
                                 :alt="playlist.name"
                                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                            <div class="absolute inset-0 bg-linear-to-t from-black/80 to-transparent"></div>
                             <div class="absolute bottom-3 left-3 right-3">
                                 <h3 class="font-bold text-white text-sm leading-tight line-clamp-2">{{ playlist.name }}</h3>
                                 <p class="text-sm text-gray-300">
@@ -84,7 +84,7 @@ defineProps({
                                     :key="video.token"
                                     :src="video.thumbnail_urls?.['120'] || video.thumbnail_url"
                                     :alt="video.name"
-                                    class="w-24 h-14 object-cover rounded flex-shrink-0"
+                                    class="w-24 h-14 object-cover rounded shrink-0"
                                 />
                             </div>
                         </div>

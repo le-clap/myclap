@@ -146,7 +146,7 @@ class PlaylistController extends Controller
             'direction' => 'required|string|in:up,down',
         ]);
 
-        $playlist = Playlist::where('slug', $slug)->lockForUpdate()->firstOrFail();
+        $playlist = Playlist::where('slug', $slug)->firstOrFail();
         $direction = $validated['direction'];
 
         if ($direction === 'up') {
@@ -199,6 +199,6 @@ class PlaylistController extends Controller
             return;
         }
 
-        Playlist::setNewOrder($playlistIds, 1);
+        Playlist::setNewOrder($playlistIds, 0);
     }
 }

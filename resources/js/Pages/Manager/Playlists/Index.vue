@@ -76,10 +76,9 @@ async function movePlaylist(index, direction) {
             </div>
 
             <div v-if="orderedPlaylists.length > 0" class="bg-dark-surface rounded-lg divide-y divide-dark-border">
-                <Link
+                <div
                     v-for="(playlist, index) in orderedPlaylists"
                     :key="playlist.slug"
-                    :href="`/manager/playlists/s/${playlist.slug}`"
                     class="flex items-center gap-4 p-4 hover:bg-[#222] transition-colors"
                 >
                     <div class="flex flex-col gap-1">
@@ -87,6 +86,8 @@ async function movePlaylist(index, direction) {
                             type="button"
                             @click.stop.prevent="movePlaylist(index, 'up')"
                             :disabled="!canMoveUp[index]"
+                            aria-label="Monter la playlist"
+                            title="Monter la playlist"
                             class="w-7 h-7 rounded border border-dark-border text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#303030] transition-colors"
                         >
                             ↑
@@ -95,27 +96,34 @@ async function movePlaylist(index, direction) {
                             type="button"
                             @click.stop.prevent="movePlaylist(index, 'down')"
                             :disabled="!canMoveDown[index]"
+                            aria-label="Descendre la playlist"
+                            title="Descendre la playlist"
                             class="w-7 h-7 rounded border border-dark-border text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#303030] transition-colors"
                         >
                             ↓
                         </button>
                     </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="font-medium">
-                            {{ playlist.name }}
+                    <Link
+                        :href="`/manager/playlists/s/${playlist.slug}`"
+                        class="flex items-center gap-4 flex-1 min-w-0"
+                    >
+                        <div class="flex-1 min-w-0">
+                            <div class="font-medium">
+                                {{ playlist.name }}
+                            </div>
+                            <div class="text-sm text-gray-400 mt-1">
+                                {{ playlist.videos_count }} vidéos • {{ playlist.access_label }}
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">
+                                Modifiée le {{ new Date(playlist.modified_on).toLocaleDateString('fr-FR') }} par
+                                {{ playlist.modified_by }}
+                            </div>
                         </div>
-                        <div class="text-sm text-gray-400 mt-1">
-                            {{ playlist.videos_count }} vidéos • {{ playlist.access_label }}
-                        </div>
-                        <div class="text-xs text-gray-500 mt-1">
-                            Modifiée le {{ new Date(playlist.modified_on).toLocaleDateString('fr-FR') }} par
-                            {{ playlist.modified_by }}
-                        </div>
-                    </div>
-                    <span :class="['px-2 py-1 rounded text-xs', getTypeClass(playlist.type)]">
-                        {{ playlist.type_label }}
-                    </span>
-                </Link>
+                        <span :class="['px-2 py-1 rounded text-xs', getTypeClass(playlist.type)]">
+                            {{ playlist.type_label }}
+                        </span>
+                    </Link>
+                </div>
             </div>
 
             <div v-else class="text-center py-12 text-gray-400 bg-dark-surface rounded-lg">
