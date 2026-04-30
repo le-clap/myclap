@@ -6,6 +6,7 @@ use App\Enums\ContentAccess;
 use App\Enums\UploadStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Models\Playlist;
 use App\Models\Video;
 use App\Models\VideoUpload;
 use App\Services\ThumbnailService;
@@ -105,9 +106,17 @@ class VideoController extends Controller
             abort(403);
         }
 
+        $appendablePlaylists = collect();
+        if ($user->hasPermission('manager.playlist')) {
+            $appendablePlaylists = Playlist::orderedForDisplay()
+                ->get(['slug', 'name', 'type'])
+                ->values();
+        }
+
         return Inertia::render('Manager/Videos/Create', [
             'categories' => Category::orderBy('label')->get(),
             'accessOptions' => ContentAccess::options(),
+            'appendablePlaylists' => $appendablePlaylists,
         ]);
     }
 
@@ -126,6 +135,7 @@ class VideoController extends Controller
             'categories' => 'nullable|array',
             'access' => 'required|integer|in:0,1,2,3',
             'thumbnail' => 'nullable|image|max:10240',
+            'append_playlist_slug' => 'nullable|string|exists:playlist,slug',
         ]);
 
         // Generate unique token
@@ -154,6 +164,22 @@ class VideoController extends Controller
         ]);
 
         $video->syncCategories($validated['categories'] ?? []);
+
+        $appendPlaylistSlug = $validated['append_playlist_slug'] ?? null;
+        if ($appendPlaylistSlug) {
+            if (! $user->hasPermission('manager.playlist')) {
+                abort(403);
+            }
+
+            $playlist = Playlist::where('slug', $appendPlaylistSlug)->first();
+            if ($playlist) {
+                $maxPosition = $playlist->videos()->max('playlist_video.position');
+                $nextPosition = $maxPosition === null ? 0 : $maxPosition + 1;
+                $playlist->videos()->syncWithoutDetaching([
+                    $video->token => ['position' => $nextPosition],
+                ]);
+            }
+        }
 
         return redirect()->route('manager.videos.upload', $video->token)
             ->with('success', 'Vidéo créée. Vous pouvez maintenant envoyer le fichier vidéo.');

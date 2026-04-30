@@ -55,9 +55,8 @@ class HomeController extends Controller
     {
         $user = $request->user();
 
-        // Efficient query to get playlists sorted by pinned, then by name
         $getPlaylistsQuery = fn ($type) => Playlist::where('type', $type)
-            ->orderByDesc('pinned')
+            ->ordered()
             ->orderBy('name')
             ->get();
 

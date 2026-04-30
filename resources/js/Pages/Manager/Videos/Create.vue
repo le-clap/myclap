@@ -11,6 +11,10 @@ const props = defineProps({
     accessOptions: {
         type: Array,
         default: () => []
+    },
+    appendablePlaylists: {
+        type: Array,
+        default: () => []
     }
 })
 
@@ -21,6 +25,7 @@ const form = useForm({
     categories: [],
     access: 3,
     thumbnail: null,
+    append_playlist_slug: '',
 })
 
 function submit() {
@@ -129,6 +134,22 @@ function toggleCategory(slug) {
                         class="w-full bg-dark-surface border border-[#3a3a3a] rounded-lg px-4 py-2 text-white"
                     />
                     <p class="text-sm text-gray-500 mt-1">PNG ou JPEG, 1920x1080 recommandé</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-2">Ajouter à une playlist</label>
+                    <select
+                        v-model="form.append_playlist_slug"
+                        class="w-full bg-dark-surface border border-[#3a3a3a] rounded-lg px-4 py-2 text-white focus:outline-none focus:border-myclap-red"
+                    >
+                        <option value="">Ne pas ajouter</option>
+                        <option v-for="playlist in appendablePlaylists" :key="playlist.slug" :value="playlist.slug">
+                            [{{ playlist.type_label }}] {{ playlist.name }}
+                        </option>
+                    </select>
+                    <p class="text-sm text-gray-500 mt-1">
+                        La vidéo sera ajoutée à la fin de la playlist sélectionnée.
+                    </p>
                 </div>
 
                 <!-- Submit -->

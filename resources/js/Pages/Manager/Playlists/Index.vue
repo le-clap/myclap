@@ -1,20 +1,60 @@
 <script setup>
 import {Head, Link} from '@inertiajs/vue3'
+import {computed, ref, watch} from 'vue'
 import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
+import axios from 'axios'
 
-defineProps({
+const props = defineProps({
     playlists: {
         type: Array,
         default: () => []
     }
 })
 
-function getTypeLabel(type) {
-    return type === 1 ? 'Diffusion' : 'Classique'
-}
+const orderedPlaylists = ref([...props.playlists])
+
+watch(
+    () => props.playlists,
+    (nextPlaylists) => {
+        orderedPlaylists.value = [...nextPlaylists]
+    }
+)
 
 function getTypeClass(type) {
     return type === 1 ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'
+}
+
+const canMoveUp = computed(() =>
+    orderedPlaylists.value.map((playlist, index) => index > 0 && orderedPlaylists.value[index - 1].type === playlist.type)
+)
+
+const canMoveDown = computed(() =>
+    orderedPlaylists.value.map(
+        (playlist, index) =>
+            index < orderedPlaylists.value.length - 1 && orderedPlaylists.value[index + 1].type === playlist.type
+    )
+)
+
+async function movePlaylist(index, direction) {
+    const playlist = orderedPlaylists.value[index]
+    const canMove = direction === 'up' ? canMoveUp.value[index] : canMoveDown.value[index]
+    if (!playlist || !canMove) {
+        return
+    }
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    const previousState = [...orderedPlaylists.value]
+
+    const movedPlaylist = orderedPlaylists.value[index]
+    orderedPlaylists.value.splice(index, 1)
+    orderedPlaylists.value.splice(targetIndex, 0, movedPlaylist)
+
+    try {
+        await axios.post(`/manager/playlists/s/${playlist.slug}/move`, {direction})
+    } catch (error) {
+        console.error('Playlist reorder failed:', error)
+        orderedPlaylists.value = previousState
+    }
 }
 </script>
 
@@ -35,34 +75,55 @@ function getTypeClass(type) {
                 </Link>
             </div>
 
-            <div v-if="playlists.length > 0" class="bg-dark-surface rounded-lg divide-y divide-dark-border">
-                <Link
-                    v-for="playlist in playlists"
+            <div v-if="orderedPlaylists.length > 0" class="bg-dark-surface rounded-lg divide-y divide-dark-border">
+                <div
+                    v-for="(playlist, index) in orderedPlaylists"
                     :key="playlist.slug"
-                    :href="`/manager/playlists/s/${playlist.slug}`"
                     class="flex items-center gap-4 p-4 hover:bg-[#222] transition-colors"
                 >
-                    <div class="flex-1 min-w-0">
-                        <div class="font-medium flex items-center gap-2">
-                            <svg v-if="playlist.pinned" class="w-4 h-4 text-myclap-red flex-shrink-0"
-                                 fill="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    d="M16 4a1 1 0 0 1 .117 1.993L16 6v4.379l1.707 1.707a1 1 0 0 1 .293.707V14a1 1 0 0 1-.883.993L17 15h-4v5a1 1 0 0 1-1.993.117L11 20v-5H7a1 1 0 0 1-.993-.883L6 14v-1.207a1 1 0 0 1 .293-.707L8 10.379V6a1 1 0 0 1-.117-1.993L8 4h8z"/>
-                            </svg>
-                            {{ playlist.name }}
-                        </div>
-                        <div class="text-sm text-gray-400 mt-1">
-                            {{ playlist.videos_count }} vidéos • {{ playlist.access }}
-                        </div>
-                        <div class="text-xs text-gray-500 mt-1">
-                            Modifiée le {{ new Date(playlist.modified_on).toLocaleDateString('fr-FR') }} par
-                            {{ playlist.modified_by }}
-                        </div>
+                    <div class="flex flex-col gap-1">
+                        <button
+                            type="button"
+                            @click.stop.prevent="movePlaylist(index, 'up')"
+                            :disabled="!canMoveUp[index]"
+                            aria-label="Monter la playlist"
+                            title="Monter la playlist"
+                            class="w-7 h-7 rounded border border-dark-border text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#303030] transition-colors"
+                        >
+                            ↑
+                        </button>
+                        <button
+                            type="button"
+                            @click.stop.prevent="movePlaylist(index, 'down')"
+                            :disabled="!canMoveDown[index]"
+                            aria-label="Descendre la playlist"
+                            title="Descendre la playlist"
+                            class="w-7 h-7 rounded border border-dark-border text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#303030] transition-colors"
+                        >
+                            ↓
+                        </button>
                     </div>
-                    <span :class="['px-2 py-1 rounded text-xs', getTypeClass(playlist.type)]">
-                        {{ getTypeLabel(playlist.type) }}
-                    </span>
-                </Link>
+                    <Link
+                        :href="`/manager/playlists/s/${playlist.slug}`"
+                        class="flex items-center gap-4 flex-1 min-w-0"
+                    >
+                        <div class="flex-1 min-w-0">
+                            <div class="font-medium">
+                                {{ playlist.name }}
+                            </div>
+                            <div class="text-sm text-gray-400 mt-1">
+                                {{ playlist.videos_count }} vidéos • {{ playlist.access_label }}
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">
+                                Modifiée le {{ new Date(playlist.modified_on).toLocaleDateString('fr-FR') }} par
+                                {{ playlist.modified_by }}
+                            </div>
+                        </div>
+                        <span :class="['px-2 py-1 rounded text-xs', getTypeClass(playlist.type)]">
+                            {{ playlist.type_label }}
+                        </span>
+                    </Link>
+                </div>
             </div>
 
             <div v-else class="text-center py-12 text-gray-400 bg-dark-surface rounded-lg">

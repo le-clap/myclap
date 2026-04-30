@@ -16,8 +16,7 @@ class PlaylistController extends Controller
     public function index()
     {
         $playlists = Playlist::withCount('videos')
-            ->orderByDesc('pinned')
-            ->orderBy('name')
+            ->orderedForDisplay()
             ->get();
 
         return Inertia::render('Manager/Playlists/Index', [
@@ -40,7 +39,6 @@ class PlaylistController extends Controller
             'description' => 'nullable|string|max:1000',
             'type' => 'required|integer|in:0,1',
             'access' => 'required|integer|in:0,1,2,3',
-            'pinned' => 'boolean',
             'videos' => 'nullable|array',
         ]);
 
@@ -64,7 +62,6 @@ class PlaylistController extends Controller
             'description' => $validated['description'] ?: null,
             'type' => $validated['type'],
             'access' => $validated['access'],
-            'pinned' => $validated['pinned'] ?? false,
             'modified_by' => $request->user()->username,
         ]);
 
@@ -98,7 +95,6 @@ class PlaylistController extends Controller
             'description' => 'nullable|string|max:1000',
             'type' => 'required|integer|in:0,1',
             'access' => 'required|integer|in:0,1,2,3',
-            'pinned' => 'boolean',
             'videos' => 'nullable|array',
         ]);
 
@@ -108,18 +104,29 @@ class PlaylistController extends Controller
         // Maintain order from request
         $orderedTokens = array_values(array_filter($videoTokens, fn ($t) => in_array($t, $validTokens)));
 
-        $playlist->update([
+        $previousType = (int) $playlist->type;
+        $nextType = (int) $validated['type'];
+
+        $payload = [
             'name' => $validated['name'],
             'description' => $validated['description'] ?: null,
-            'type' => $validated['type'],
+            'type' => $nextType,
             'access' => $validated['access'],
-            'pinned' => $validated['pinned'] ?? false,
             'modified_by' => $request->user()->username,
             'modified_on' => now(),
-        ]);
+        ];
+
+        $playlist->update($payload);
 
         // Sync videos with order
         $playlist->syncVideosWithOrder($orderedTokens);
+
+        if ($nextType !== $previousType) {
+            $playlist->moveToEnd();
+            // Fix the two groups
+            $this->normalizeTypeOrder($previousType);
+            $this->normalizeTypeOrder($nextType);
+        }
 
         return back()->with('success', 'Les changements ont bien été sauvegardés');
     }
@@ -131,6 +138,24 @@ class PlaylistController extends Controller
 
         return redirect()->route('manager.playlists.index')
             ->with('success', 'La playlist a bien été supprimée');
+    }
+
+    public function move(Request $request, string $slug)
+    {
+        $validated = $request->validate([
+            'direction' => 'required|string|in:up,down',
+        ]);
+
+        $playlist = Playlist::where('slug', $slug)->firstOrFail();
+        $direction = $validated['direction'];
+
+        if ($direction === 'up') {
+            $playlist->moveOrderUp();
+        } else {
+            $playlist->moveOrderDown();
+        }
+
+        return response()->noContent();
     }
 
     public function searchVideos(Request $request)
@@ -159,5 +184,21 @@ class PlaylistController extends Controller
             'videos' => $videos,
             'total' => $videos->count(),
         ]);
+    }
+
+    private function normalizeTypeOrder(int $type): void
+    {
+        $playlistIds = Playlist::where('type', $type)
+            ->orderBy('position')
+            ->orderBy('name')
+            ->orderBy('id')
+            ->pluck('id')
+            ->toArray();
+
+        if ($playlistIds === []) {
+            return;
+        }
+
+        Playlist::setNewOrder($playlistIds, 0);
     }
 }
