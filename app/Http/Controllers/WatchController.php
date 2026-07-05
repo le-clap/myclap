@@ -4,95 +4,84 @@ namespace App\Http\Controllers;
 
 use App\Enums\ContentAccess;
 use App\Models\Playlist;
+use App\Models\User;
 use App\Models\Video;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class WatchController extends Controller
 {
-    public function show(Request $request, string $token)
+    public function show(Request $request, Video $video): Response
     {
-        $video = Video::with('categories')
-            ->where('token', $token)
-            ->published()
-            ->firstOrFail();
+        abort_unless($video->isPublished(), 404);
 
-        $access = ContentAccess::from($video->access);
+        $video->load('categories');
         $user = $request->user();
 
-        if ($access === ContentAccess::CENTRALIENS && ! $user) {
-            return Inertia::render('Watch/LoginRequired', [
-                'video' => $video,
-            ]);
-        }
-
-        if ($access === ContentAccess::PRIVATE && (! $user || ! $user->hasPermission('myclap.private'))) {
-            return Inertia::render('Watch/PrivateVideo', [
-                'video' => $video,
-            ]);
-        }
-
-        $userDidLike = false;
-        if ($user) {
-            $userDidLike = $video->videoReactions()
-                ->where('username', $user->username)
-                ->exists();
+        if ($gate = $this->accessGate($video, $user)) {
+            return $gate;
         }
 
         return Inertia::render('Watch/Index', [
             'video' => $video,
-            'userDidLike' => $userDidLike,
+            'userDidLike' => $this->userDidLike($video, $user),
         ]);
     }
 
-    public function showInPlaylist(Request $request, string $playlistSlug, string $token)
+    public function showInPlaylist(Request $request, Playlist $playlist, Video $video): Response
     {
-        $playlist = Playlist::where('slug', $playlistSlug)->firstOrFail();
-        $video = Video::with('categories')->where('token', $token)->published()->firstOrFail();
+        abort_unless($video->isPublished(), 404);
 
-        // Check access - show login page instead of 403 for Centraliens videos
-        $access = ContentAccess::from($video->access);
+        $video->load('categories');
         $user = $request->user();
 
-        if ($access === ContentAccess::CENTRALIENS && ! $user) {
-            return Inertia::render('Watch/LoginRequired', [
-                'video' => $video,
-            ]);
+        if ($gate = $this->accessGate($video, $user)) {
+            return $gate;
         }
 
-        if ($access === ContentAccess::PRIVATE && (! $user || ! $user->hasPermission('myclap.private'))) {
-            return Inertia::render('Watch/PrivateVideo', [
-                'video' => $video,
-            ]);
-        }
-
-        // Check if video is in playlist
-        $playlistTokens = $playlist->getVideoTokens();
-        if (! in_array($token, $playlistTokens)) {
+        if (! in_array($video->token, $playlist->getVideoTokens(), true)) {
             abort(404);
         }
 
         $videos = $playlist->getVideosCollection($user);
-        $currentIndex = $videos->search(fn ($v) => $v->token === $token);
-
-        $userDidLike = false;
-        if ($user) {
-            $userDidLike = $video->videoReactions()
-                ->where('username', $user->username)
-                ->exists();
-        }
+        $currentIndex = $videos->search(fn ($v) => $v->token === $video->token);
 
         return Inertia::render('Watch/Playlist', [
             'playlist' => $playlist,
             'video' => $video,
             'videos' => $videos->values(),
             'currentIndex' => $currentIndex !== false ? $currentIndex : 0,
-            'userDidLike' => $userDidLike,
+            'userDidLike' => $this->userDidLike($video, $user),
         ]);
     }
 
-    public function download(string $token)
+    public function download(Video $video): RedirectResponse
     {
-        return redirect()->route('watch.media.video.download', ['token' => $token]);
+        return redirect()->route('watch.media.video.download', $video);
+    }
+
+    /**
+     * Return the appropriate "access denied" Inertia page for the given video,
+     * or null when the user is allowed to watch it.
+     */
+    private function accessGate(Video $video, ?User $user): ?Response
+    {
+        return match ($video->access) {
+            ContentAccess::CENTRALIENS => $user === null
+                ? Inertia::render('Watch/LoginRequired', ['video' => $video])
+                : null,
+            ContentAccess::PRIVATE => ($user === null || ! $user->hasPermission('myclap.private'))
+                ? Inertia::render('Watch/PrivateVideo', ['video' => $video])
+                : null,
+            default => null,
+        };
+    }
+
+    private function userDidLike(Video $video, ?User $user): bool
+    {
+        return $user !== null
+            && $video->videoReactions()->where('username', $user->username)->exists();
     }
 }

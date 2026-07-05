@@ -26,67 +26,68 @@ Route::get('/logout', [CLAController::class, 'logout'])->name('logout');
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
 Route::get('/playlists', [HomeController::class, 'playlists'])->name('home.playlists');
-Route::get('/playlists/{slug}', [HomeController::class, 'playlistDetails'])->name('home.playlists.details');
+Route::get('/playlists/{playlist}', [HomeController::class, 'playlistDetails'])->name('home.playlists.details');
 
 Route::get('/categories', [HomeController::class, 'categories'])->name('home.categories');
-Route::get('/categories/{slug}', [HomeController::class, 'categoryDetails'])->name('home.categories.details');
+Route::get('/categories/{category}', [HomeController::class, 'categoryDetails'])->name('home.categories.details');
 
 Route::get('/favoris', [HomeController::class, 'favorites'])->name('home.favorites');
 
 Route::get('/search', [SearchController::class, 'index'])->name('search');
 
 // ===== Watch Video =====
-Route::get('/regarder/{token}', [WatchController::class, 'show'])->name('watch');
-Route::get('/playlists/{slug}/{token}', [WatchController::class, 'showInPlaylist'])->name('watch.playlist');
-Route::get('/download/{token}', [WatchController::class, 'download'])->name('watch.download');
+Route::get('/regarder/{video}', [WatchController::class, 'show'])->name('watch');
+Route::get('/playlists/{playlist}/{video}', [WatchController::class, 'showInPlaylist'])->name('watch.playlist');
+Route::get('/download/{video}', [WatchController::class, 'download'])->name('watch.download');
 
 // ===== Media (Video/Thumbnail) =====
-Route::get('/media/{token}', [MediaController::class, 'video'])->name('watch.media.video');
-Route::get('/media/{token}/download', [MediaController::class, 'videoDownload'])->name('watch.media.video.download');
-Route::get('/media/{token}/thumbnail', [MediaController::class, 'thumbnail'])->name('watch.media.thumbnail');
+Route::get('/media/{video}', [MediaController::class, 'video'])->name('watch.media.video');
+Route::get('/media/{video}/download', [MediaController::class, 'videoDownload'])->name('watch.media.video.download');
+Route::get('/media/{video}/thumbnail', [MediaController::class, 'thumbnail'])->name('watch.media.thumbnail');
 
 // ===== User API =====
 Route::get('/api/videos', [HomeController::class, 'loadVideos'])->name('api.videos');
-Route::get('/api/categories/{slug}/videos', [HomeController::class, 'loadCategoryVideos'])->name('api.categories.videos');
+Route::get('/api/categories/{category}/videos', [HomeController::class, 'loadCategoryVideos'])->name('api.categories.videos');
 Route::get('/api/search', [SearchController::class, 'searchApi'])->name('api.search');
-Route::post('/api/reaction/{token}', [VideoReactionController::class, 'toggle'])->name('api.reaction.toggle');
+Route::post('/api/reaction/{video}', [VideoReactionController::class, 'toggle'])->name('api.reaction.toggle');
 
 // ===== Video Stats API =====
-Route::post('/api/stats/{token}/init', [VideoStatController::class, 'init'])->name('api.stats.init');
-Route::post('/api/stats/{token}/update', [VideoStatController::class, 'update'])->name('api.stats.update');
+Route::post('/api/stats/{video}/init', [VideoStatController::class, 'init'])->name('api.stats.init');
+Route::post('/api/stats/{video}/update', [VideoStatController::class, 'update'])->name('api.stats.update');
 
 // ===== Manager =====
 Route::prefix('manager')->name('manager.')->middleware(['auth', 'permission_group:manager'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
-    // Videos
-    Route::get('/videos', [VideoController::class, 'index'])->name('videos.index');
-    Route::get('/videos/ajouter', [VideoController::class, 'create'])->name('videos.create');
-    Route::get('/videos/v/{token}', [VideoController::class, 'edit'])->name('videos.edit');
-    Route::get('/videos/v/{token}/envoyer', [VideoController::class, 'upload'])->name('videos.upload');
+    Route::middleware('permission_group:manager.video')->group(function () {
+        Route::get('/videos', [VideoController::class, 'index'])->name('videos.index');
+        Route::get('/videos/ajouter', [VideoController::class, 'create'])->name('videos.create');
+        Route::get('/videos/v/{video}', [VideoController::class, 'edit'])->name('videos.edit');
+        Route::get('/videos/v/{video}/envoyer', [VideoController::class, 'upload'])->name('videos.upload');
 
-    // Videos API
-    Route::post('/videos', [VideoController::class, 'store'])->name('videos.store');
-    Route::put('/videos/v/{token}', [VideoController::class, 'update'])->name('videos.update');
-    Route::delete('/videos/v/{token}', [VideoController::class, 'destroy'])->name('videos.destroy');
+        // Videos API
+        Route::post('/videos', [VideoController::class, 'store'])->name('videos.store');
+        Route::put('/videos/v/{video}', [VideoController::class, 'update'])->name('videos.update');
+        Route::delete('/videos/v/{video}', [VideoController::class, 'destroy'])->name('videos.destroy');
 
-    // Video Upload API
-    Route::post('/videos/v/{token}/upload/init', [VideoUploadApiController::class, 'init'])->name('videos.upload.init');
-    Route::post('/videos/v/{token}/upload/process', [VideoUploadApiController::class, 'process'])->name('videos.upload.process');
-    Route::post('/videos/v/{token}/upload/end', [VideoUploadApiController::class, 'end'])->name('videos.upload.end');
-    Route::post('/videos/v/{token}/upload/reset', [VideoUploadApiController::class, 'reset'])->name('videos.upload.reset');
+        // Video Upload API
+        Route::post('/videos/v/{video}/upload/init', [VideoUploadApiController::class, 'init'])->name('videos.upload.init');
+        Route::post('/videos/v/{video}/upload/process', [VideoUploadApiController::class, 'process'])->name('videos.upload.process');
+        Route::post('/videos/v/{video}/upload/end', [VideoUploadApiController::class, 'end'])->name('videos.upload.end');
+        Route::post('/videos/v/{video}/upload/reset', [VideoUploadApiController::class, 'reset'])->name('videos.upload.reset');
+    });
 
     // Playlists
     Route::middleware('permission:manager.playlist')->group(function () {
         Route::get('/playlists', [PlaylistController::class, 'index'])->name('playlists.index');
         Route::get('/playlists/ajouter', [PlaylistController::class, 'create'])->name('playlists.create');
-        Route::get('/playlists/s/{slug}', [PlaylistController::class, 'edit'])->name('playlists.edit');
+        Route::get('/playlists/s/{playlist}', [PlaylistController::class, 'edit'])->name('playlists.edit');
 
         // Playlists API
         Route::post('/playlists', [PlaylistController::class, 'store'])->name('playlists.store');
-        Route::put('/playlists/s/{slug}', [PlaylistController::class, 'update'])->name('playlists.update');
-        Route::post('/playlists/s/{slug}/move', [PlaylistController::class, 'move'])->name('playlists.move');
-        Route::delete('/playlists/s/{slug}', [PlaylistController::class, 'destroy'])->name('playlists.destroy');
+        Route::put('/playlists/s/{playlist}', [PlaylistController::class, 'update'])->name('playlists.update');
+        Route::post('/playlists/s/{playlist}/move', [PlaylistController::class, 'move'])->name('playlists.move');
+        Route::delete('/playlists/s/{playlist}', [PlaylistController::class, 'destroy'])->name('playlists.destroy');
         Route::get('/playlists/api/search', [PlaylistController::class, 'searchVideos'])->name('playlists.api.search');
     });
 
@@ -94,18 +95,18 @@ Route::prefix('manager')->name('manager.')->middleware(['auth', 'permission_grou
     Route::middleware('permission:manager.category')->group(function () {
         Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
         Route::get('/categories/ajouter', [CategoryController::class, 'create'])->name('categories.create');
-        Route::get('/categories/s/{slug}', [CategoryController::class, 'edit'])->name('categories.edit');
+        Route::get('/categories/s/{category}', [CategoryController::class, 'edit'])->name('categories.edit');
 
         // Categories API
         Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
-        Route::put('/categories/s/{slug}', [CategoryController::class, 'update'])->name('categories.update');
-        Route::delete('/categories/s/{slug}', [CategoryController::class, 'destroy'])->name('categories.destroy');
+        Route::put('/categories/s/{category}', [CategoryController::class, 'update'])->name('categories.update');
+        Route::delete('/categories/s/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
     });
 
     // Stats
     Route::middleware('permission:manager.stat')->group(function () {
         Route::get('/stats', [StatController::class, 'index'])->name('stats.index');
-        Route::get('/stats/video/{token}', [StatController::class, 'video'])->name('stats.video');
+        Route::get('/stats/video/{video}', [StatController::class, 'video'])->name('stats.video');
     });
 
     // Billboard / Presentation
@@ -123,7 +124,7 @@ Route::prefix('manager')->name('manager.')->middleware(['auth', 'permission_grou
 
 // ===== Admin =====
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(function () {
-    Route::get('/', [\App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
 
     // Permissions
     Route::get('/permissions', [PermissionController::class, 'index'])->name('permissions.index');

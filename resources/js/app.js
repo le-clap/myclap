@@ -1,10 +1,10 @@
-import './bootstrap';
+import './bootstrap.js';
 import '../css/app.css';
 
 import {createApp, h} from 'vue';
 import {createInertiaApp} from '@inertiajs/vue3';
 import {resolvePageComponent} from 'laravel-vite-plugin/inertia-helpers';
-import {ZiggyVue} from '../../vendor/tightenco/ziggy';
+import {ZiggyVue} from 'ziggy-js';
 
 const appName = window.document.getElementsByTagName('title')[0]?.innerText || 'myCLAP';
 

@@ -51,19 +51,15 @@ class CategoryController extends Controller
             ->with('success', 'La catégorie a été créée avec succès');
     }
 
-    public function edit(string $slug)
+    public function edit(Category $category)
     {
-        $category = Category::where('slug', $slug)->firstOrFail();
-
         return Inertia::render('Manager/Categories/Edit', [
             'category' => $category,
         ]);
     }
 
-    public function update(Request $request, string $slug)
+    public function update(Request $request, Category $category)
     {
-        $category = Category::where('slug', $slug)->firstOrFail();
-
         $validated = $request->validate([
             'label' => 'required|string|max:75',
             'description' => 'nullable|string|max:500',
@@ -77,9 +73,8 @@ class CategoryController extends Controller
         return back()->with('success', 'Les changements ont bien été sauvegardés');
     }
 
-    public function destroy(string $slug)
+    public function destroy(Category $category)
     {
-        $category = Category::where('slug', $slug)->firstOrFail();
         $category->delete();
 
         return redirect()->route('manager.categories.index')

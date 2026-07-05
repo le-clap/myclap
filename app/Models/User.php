@@ -53,16 +53,30 @@ class User extends Authenticatable
 
     public function hasPermission(string $identifier): bool
     {
-        return $this->permissions()->where('identifier', $identifier)->exists() || $this->isAdmin();
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        return $this->relationLoaded('permissions')
+            ? $this->permissions->contains('identifier', $identifier)
+            : $this->permissions()->where('identifier', $identifier)->exists();
     }
 
     public function hasPermissionGroup(string $group): bool
     {
-        return $this->permissions()->where('identifier', 'LIKE', "{$group}.%")->exists() || $this->isAdmin();
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        return $this->relationLoaded('permissions')
+            ? $this->permissions->contains(fn (UserPermission $p) => str_starts_with($p->identifier, "{$group}."))
+            : $this->permissions()->where('identifier', 'LIKE', "{$group}.%")->exists();
     }
 
     public function isAdmin(): bool
     {
-        return $this->permissions()->where('identifier', 'admin')->exists();
+        return $this->relationLoaded('permissions')
+            ? $this->permissions->contains('identifier', 'admin')
+            : $this->permissions()->where('identifier', 'admin')->exists();
     }
 }

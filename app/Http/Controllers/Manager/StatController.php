@@ -89,35 +89,34 @@ class StatController extends Controller
         ]);
     }
 
-    public function video(string $token)
+    public function video(Video $video)
     {
-        $video = Video::where('token', $token)->firstOrFail();
 
         $viewsData = VideoView::select(
             DB::raw('DATE(created_on) as date'),
             DB::raw('COUNT(*) as views')
         )
-            ->where('video_token', $token)
+            ->where('video_token', $video->token)
             ->where('count_as_view', 1)
             ->where('created_on', '>=', now()->subDays(30))
             ->groupBy('date')
             ->orderBy('date')
             ->get();
 
-        $uniqueViewers = VideoView::where('video_token', $token)
+        $uniqueViewers = VideoView::where('video_token', $video->token)
             ->where('count_as_view', 1)
             ->whereNotNull('username')
             ->distinct('username')
             ->count('username');
 
-        $averageWatchTime = VideoView::where('video_token', $token)
+        $averageWatchTime = VideoView::where('video_token', $video->token)
             ->where('count_as_view', 1)
             ->whereNotNull('watch_time')
             ->avg('watch_time') ?? 0;
 
         // View sources breakdown
         $viewSources = VideoView::select('view_source', DB::raw('COUNT(*) as count'))
-            ->where('video_token', $token)
+            ->where('video_token', $video->token)
             ->where('count_as_view', 1)
             ->whereNotNull('view_source')
             ->groupBy('view_source')
@@ -126,7 +125,7 @@ class StatController extends Controller
 
         // Device types breakdown
         $deviceTypes = VideoView::select('device_type', DB::raw('COUNT(*) as count'))
-            ->where('video_token', $token)
+            ->where('video_token', $video->token)
             ->where('count_as_view', 1)
             ->whereNotNull('device_type')
             ->groupBy('device_type')
@@ -135,7 +134,7 @@ class StatController extends Controller
 
         // Browsers breakdown
         $browsers = VideoView::select('browser', DB::raw('COUNT(*) as count'))
-            ->where('video_token', $token)
+            ->where('video_token', $video->token)
             ->where('count_as_view', 1)
             ->whereNotNull('browser')
             ->groupBy('browser')
@@ -144,7 +143,7 @@ class StatController extends Controller
 
         // OS breakdown
         $operatingSystems = VideoView::select('os', DB::raw('COUNT(*) as count'))
-            ->where('video_token', $token)
+            ->where('video_token', $video->token)
             ->where('count_as_view', 1)
             ->whereNotNull('os')
             ->groupBy('os')
@@ -152,7 +151,7 @@ class StatController extends Controller
             ->get();
 
         // Recent views with details (anonymized for privacy)
-        $recentViews = VideoView::where('video_token', $token)
+        $recentViews = VideoView::where('video_token', $video->token)
             ->where('count_as_view', 1)
             ->orderByDesc('created_on')
             ->limit(50)

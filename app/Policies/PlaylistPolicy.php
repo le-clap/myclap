@@ -15,9 +15,7 @@ class PlaylistPolicy
 
     public function view(?User $user, Playlist $playlist): bool
     {
-        $access = ContentAccess::from($playlist->access);
-
-        return match ($access) {
+        return match ($playlist->access) {
             ContentAccess::PUBLIC, ContentAccess::UNLINKED => true,
             ContentAccess::CENTRALIENS => $user !== null,
             ContentAccess::PRIVATE => $user?->hasPermission('myclap.private') ?? false,

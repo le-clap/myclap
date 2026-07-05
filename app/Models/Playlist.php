@@ -46,10 +46,15 @@ class Playlist extends Model implements Sortable
         return [
             'created_on' => 'datetime',
             'modified_on' => 'datetime',
-            'type' => 'integer',
-            'access' => 'integer',
+            'type' => PlaylistType::class,
+            'access' => ContentAccess::class,
             'position' => 'integer',
         ];
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
     }
 
     public array $sortable = [
@@ -85,22 +90,10 @@ class Playlist extends Model implements Sortable
 
     public function getVideosCollection(?User $user = null): Collection
     {
-        $query = $this->videos()->published();
-
-        if ($user) {
-            $query->whereIn('access', [
-                ContentAccess::CENTRALIENS->value,
-                ContentAccess::PUBLIC->value,
-                ContentAccess::UNLINKED->value,
-            ]);
-        } else {
-            $query->whereIn('access', [
-                ContentAccess::PUBLIC->value,
-                ContentAccess::UNLINKED->value,
-            ]);
-        }
-
-        return $query->get();
+        return $this->videos()
+            ->published()
+            ->accessibleBy($user, true)
+            ->get();
     }
 
     /**
@@ -131,48 +124,23 @@ class Playlist extends Model implements Sortable
         return $this->belongsTo(User::class, 'modified_by', 'username');
     }
 
-    protected function typeEnum(): Attribute
-    {
-        return Attribute::make(
-            get: fn () => PlaylistType::from($this->type),
-        );
-    }
-
     protected function typeLabel(): Attribute
     {
-        return Attribute::make(get: fn () => $this->type_enum->label());
-    }
-
-    protected function accessEnum(): Attribute
-    {
-        return Attribute::make(
-            get: fn () => ContentAccess::from($this->access),
-        );
+        return Attribute::make(get: fn () => $this->type->label());
     }
 
     protected function accessLabel(): Attribute
     {
-        return Attribute::make(get: fn () => $this->access_enum->label());
+        return Attribute::make(get: fn () => $this->access->label());
     }
 
     public function isBroadcast(): bool
     {
-        return $this->type === PlaylistType::BROADCAST->value;
+        return $this->type === PlaylistType::BROADCAST;
     }
 
     public function isClassic(): bool
     {
-        return $this->type === PlaylistType::CLASSIC->value;
-    }
-
-    protected function firstVideoThumbnail(): Attribute
-    {
-        return Attribute::make(
-            get: function (): ?string {
-                $firstVideo = $this->videos()->published()->first();
-
-                return $firstVideo?->thumbnail_urls['480'] ?? $firstVideo?->thumbnail_url;
-            },
-        );
+        return $this->type === PlaylistType::CLASSIC;
     }
 }

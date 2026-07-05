@@ -15,9 +15,7 @@ class VideoPolicy
 
     public function view(?User $user, Video $video): bool
     {
-        $access = ContentAccess::from($video->access);
-
-        return match ($access) {
+        return match ($video->access) {
             ContentAccess::PUBLIC, ContentAccess::UNLINKED => true,
             ContentAccess::CENTRALIENS => $user !== null,
             ContentAccess::PRIVATE => $user?->hasPermission('myclap.private') ?? false,

@@ -50,7 +50,7 @@ class BillboardController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:60',
             'button' => 'required|string|max:30',
-            'url' => 'required|string|max:255',
+            'url' => ['required', 'string', 'max:255', 'regex:#^(https?://|/)#i'],
             'icon' => 'nullable|string|max:30',
             'color' => 'required|string',
         ]);
@@ -109,7 +109,7 @@ class BillboardController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:60',
             'button' => 'required|string|max:30',
-            'url' => 'required|string|max:255',
+            'url' => ['required', 'string', 'max:255', 'regex:#^(https?://|/)#i'],
             'icon' => 'nullable|string|max:30',
             'color' => 'required|string',
         ]);

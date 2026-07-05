@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Enums\UploadStatus;
+use App\Exceptions\UploadException;
 use App\Models\Video;
 use App\Models\VideoUpload;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -20,8 +22,8 @@ class VideoUploadService
 
     public function initUpload(Video $video, string $fileName, int $fileSize, string $username): array
     {
-        if ($video->upload_status === UploadStatus::UPLOAD_END->value) {
-            throw new \Exception('Vidéo déjà uploadée');
+        if ($video->upload_status === UploadStatus::UPLOAD_END) {
+            throw new UploadException('Vidéo déjà uploadée');
         }
 
         $upload = VideoUpload::where('video_token', $video->token)->first();
@@ -30,7 +32,7 @@ class VideoUploadService
         if ($upload) {
             // Resume upload
             if ($upload->file_size != $fileSize) {
-                throw new \Exception('Le fichier doit être identique à celui que vous aviez commencé à envoyer.');
+                throw new UploadException('Le fichier doit être identique à celui que vous aviez commencé à envoyer.');
             }
 
             if (Storage::disk('local')->exists($upload->file_identifier)) {
@@ -54,7 +56,7 @@ class VideoUploadService
                 'created_by' => $username,
             ]);
 
-            $video->upload_status = UploadStatus::UPLOAD_INIT->value;
+            $video->upload_status = UploadStatus::UPLOAD_INIT;
             $video->save();
         }
 
@@ -73,15 +75,21 @@ class VideoUploadService
         $currentSize = file_exists($path) ? filesize($path) : 0;
 
         if ($startIndex !== $currentSize) {
-            throw new \Exception("Index incorrect : attendu {$currentSize}, reçu {$startIndex}");
+            throw new UploadException("Index incorrect : attendu {$currentSize}, reçu {$startIndex}");
         }
 
         // Read and append the chunk
         $chunkContent = file_get_contents($chunkFile->getRealPath());
+        $chunkLength = strlen($chunkContent);
+
+        if ($startIndex + $chunkLength > $upload->file_size) {
+            throw new UploadException('La taille du fichier dépasse la taille annoncée.');
+        }
+
         $written = file_put_contents($path, $chunkContent, FILE_APPEND);
 
         if ($written === false) {
-            throw new \Exception("Erreur lors de l'écriture du chunk");
+            throw new UploadException("Erreur lors de l'écriture du chunk");
         }
 
         $newSize = $startIndex + $written;
@@ -94,7 +102,7 @@ class VideoUploadService
             ];
         }
 
-        // Calculate adaptive chunk size (target 3 seconds per chunk)
+        // Clamp the next chunk size to the accepted range
         $adaptiveChunkSize = min(
             (int) self::MAX_CHUNK_SIZE,
             max((int) self::MIN_CHUNK_SIZE, $chunkSize)
@@ -112,16 +120,27 @@ class VideoUploadService
         $upload = VideoUpload::where('video_token', $video->token)->firstOrFail();
 
         $tempPath = $upload->file_identifier;
-
-        // Generate random 10-character identifier for video file
-        $videoIdentifier = Str::random(10);
-        $finalIdentifier = 'videos/'.$videoIdentifier.'.mp4';
-
-        // Check file size matches
         $path = Storage::disk('local')->path($tempPath);
-        if (filesize($path) !== $upload->file_size) {
-            throw new \Exception("Toute la ressource n'a pas été correctement téléversée. Veuillez recommencer.");
+
+        // The whole declared payload must have been received
+        clearstatcache(true, $path);
+        if (! file_exists($path) || filesize($path) !== $upload->file_size) {
+            throw new UploadException("Toute la ressource n'a pas été correctement téléversée. Veuillez recommencer.");
         }
+
+        // Validate the assembled file is actually a decodable video before we
+        // commit it. Doubles as the single metadata probe for this upload.
+        $duration = $this->videoService->getVideoDuration($tempPath);
+        if ($duration === null) {
+            Storage::disk('local')->delete($tempPath);
+            $upload->delete();
+            $video->upload_status = UploadStatus::UPLOAD_NULL;
+            $video->save();
+
+            throw new UploadException("Le fichier envoyé n'est pas une vidéo valide.");
+        }
+
+        $finalIdentifier = 'videos/'.Str::random(10).'.mp4';
 
         // Ensure videos directory exists
         $videosDir = Storage::disk('local')->path('videos');
@@ -129,16 +148,29 @@ class VideoUploadService
             mkdir($videosDir, 0755, true);
         }
 
-        // Move the file
+        // Move the assembled file into place, then commit the DB changes
+        // atomically. If the transaction fails, roll the file move back so the
+        // upload can be retried cleanly.
         Storage::disk('local')->move($tempPath, $finalIdentifier);
 
-        $video->file_identifier = $finalIdentifier;
-        $video->upload_status = UploadStatus::UPLOAD_END->value;
-        $video->uploaded_on = now();
-        $video->save();
+        try {
+            DB::transaction(function () use ($video, $upload, $finalIdentifier, $duration) {
+                $video->file_identifier = $finalIdentifier;
+                $video->upload_status = UploadStatus::UPLOAD_END;
+                $video->uploaded_on = now();
+                $video->duration = $duration;
+                $video->file_size = $upload->file_size;
+                $video->save();
 
-        $this->videoService->updateMetadata($video);
-        $upload->delete();
+                $upload->delete();
+            });
+        } catch (\Throwable $e) {
+            if (Storage::disk('local')->exists($finalIdentifier)) {
+                Storage::disk('local')->move($finalIdentifier, $tempPath);
+            }
+
+            throw $e;
+        }
     }
 
     public function resetUpload(Video $video): void
@@ -152,7 +184,7 @@ class VideoUploadService
             $upload->delete();
         }
 
-        $video->upload_status = UploadStatus::UPLOAD_NULL->value;
+        $video->upload_status = UploadStatus::UPLOAD_NULL;
         $video->save();
     }
 

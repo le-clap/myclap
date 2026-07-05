@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Video;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
+use Symfony\Component\Process\Process;
 
 class VideoService
 {
@@ -16,20 +18,40 @@ class VideoService
             return null;
         }
 
-        $command = sprintf(
-            'ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 %s 2>/dev/null',
-            escapeshellarg($fullPath)
-        );
+        $process = new Process([
+            'ffprobe',
+            '-v', 'error',
+            '-show_entries', 'format=duration',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            $fullPath,
+        ]);
+        $process->setTimeout((float) config('media.ffprobe_timeout', 30));
 
-        $output = shell_exec($command);
+        try {
+            $process->run();
+        } catch (ProcessTimedOutException $e) {
+            Log::warning("ffprobe timed out for: {$filePath}");
 
-        if ($output === null || trim($output) === '') {
-            Log::warning("Failed to get video duration for: {$filePath}");
+            return null;
+        } catch (\Throwable $e) {
+            Log::warning("ffprobe failed for {$filePath}: {$e->getMessage()}");
 
             return null;
         }
 
-        $duration = (int) round((float) trim($output));
+        if (! $process->isSuccessful()) {
+            Log::warning("ffprobe unsuccessful for: {$filePath}");
+
+            return null;
+        }
+
+        $output = trim($process->getOutput());
+
+        if ($output === '') {
+            return null;
+        }
+
+        $duration = (int) round((float) $output);
 
         return $duration > 0 ? $duration : null;
     }
@@ -43,71 +65,44 @@ class VideoService
         }
 
         clearstatcache(true, $fullPath);
+
         $size = filesize($fullPath);
 
         if ($size === false) {
-            Log::warning("Failed to get video file size for: {$filePath}");
+            Log::warning("Unable to read file size for: {$filePath}");
 
             return null;
         }
 
-        return (int) $size;
+        return $size;
     }
 
-    public function updateMetadata(Video $video): ?array
+    public function syncMetadata(Video $video): void
     {
         if (! $video->file_identifier) {
-            return null;
+            return;
         }
 
-        $duration = $this->getVideoDuration($video->file_identifier);
-        $fileSize = $this->getVideoFileSize($video->file_identifier);
+        $fullPath = Storage::disk('local')->path($video->file_identifier);
 
-        if ($duration !== null) {
-            $video->duration = $duration;
+        if (! file_exists($fullPath)) {
+            Log::warning("Video file missing: {$video->file_identifier}");
+
+            $video->duration = null;
+            $video->file_size = null;
+
+            if ($video->isDirty()) {
+                $video->save();
+            }
+
+            return;
         }
 
-        if ($fileSize !== null) {
-            $video->file_size = $fileSize;
-        }
+        $video->duration = $this->getVideoDuration($video->file_identifier);
+        $video->file_size = $this->getVideoFileSize($video->file_identifier);
 
-        if ($duration !== null || $fileSize !== null) {
+        if ($video->isDirty()) {
             $video->save();
         }
-
-        return [
-            'duration' => $video->duration,
-            'file_size' => $video->file_size,
-        ];
-    }
-
-    public function checkAndUpdateMetadata(Video $video): ?array
-    {
-        if (! $video->file_identifier) {
-            return null;
-        }
-
-        $newDuration = $this->getVideoDuration($video->file_identifier);
-        $newFileSize = $this->getVideoFileSize($video->file_identifier);
-        $shouldSave = false;
-
-        if ($newDuration !== null && $newDuration !== $video->duration) {
-            $video->duration = $newDuration;
-            $shouldSave = true;
-        }
-
-        if ($newFileSize !== null && $newFileSize !== $video->file_size) {
-            $video->file_size = $newFileSize;
-            $shouldSave = true;
-        }
-
-        if ($shouldSave) {
-            $video->save();
-        }
-
-        return [
-            'duration' => $video->duration,
-            'file_size' => $video->file_size,
-        ];
     }
 }

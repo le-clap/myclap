@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\Playlist;
 use App\Models\Video;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
@@ -38,17 +39,19 @@ class HomeController extends Controller
     public function loadVideos(Request $request)
     {
         $user = $request->user();
-        $offset = $request->get('offset', 0);
-        $limit = min($request->get('limit', 8), 20);
+        $offset = max((int) $request->get('offset', 0), 0);
+        $limit = min((int) $request->get('limit', 8), 20);
 
-        $videos = Video::published()
-            ->accessibleBy($user)
+        $query = Video::published()->accessibleBy($user);
+        $total = (clone $query)->count();
+
+        $videos = $query
             ->orderBy('created_on', 'desc')
             ->offset($offset)
             ->limit($limit)
             ->get();
 
-        return response()->json(['videos' => $videos, 'total' => $videos->count()]);
+        return response()->json(['videos' => $videos, 'total' => $total]);
     }
 
     public function playlists(Request $request)
@@ -56,17 +59,18 @@ class HomeController extends Controller
         $user = $request->user();
 
         $getPlaylistsQuery = fn ($type) => Playlist::where('type', $type)
+            ->with(['videos' => fn ($q) => $q->published()->accessibleBy($user, true)])
             ->ordered()
             ->orderBy('name')
             ->get();
 
         $broadcastPlaylists = $getPlaylistsQuery(1)
-            ->filter(fn ($p) => $this->canViewPlaylist($p, $user))
-            ->map(fn ($p) => $this->enrichPlaylist($p, $user));
+            ->filter(fn ($p) => Gate::allows('view', $p))
+            ->map(fn ($p) => $this->enrichPlaylist($p));
 
         $classicPlaylists = $getPlaylistsQuery(0)
-            ->filter(fn ($p) => $this->canViewPlaylist($p, $user))
-            ->map(fn ($p) => $this->enrichPlaylist($p, $user));
+            ->filter(fn ($p) => Gate::allows('view', $p))
+            ->map(fn ($p) => $this->enrichPlaylist($p));
 
         return Inertia::render('Home/Playlists', [
             'broadcastPlaylists' => $broadcastPlaylists->values(),
@@ -74,16 +78,11 @@ class HomeController extends Controller
         ]);
     }
 
-    public function playlistDetails(Request $request, string $slug)
+    public function playlistDetails(Request $request, Playlist $playlist)
     {
-        $playlist = Playlist::where('slug', $slug)->firstOrFail();
-        $user = $request->user();
+        $this->authorize('view', $playlist);
 
-        if (! $this->canViewPlaylist($playlist, $user)) {
-            abort(403);
-        }
-
-        $videos = $playlist->getVideosCollection($user);
+        $videos = $playlist->getVideosCollection($request->user());
 
         return Inertia::render('Home/PlaylistDetails', [
             'playlist' => $playlist,
@@ -100,9 +99,8 @@ class HomeController extends Controller
         ]);
     }
 
-    public function categoryDetails(Request $request, string $slug)
+    public function categoryDetails(Request $request, Category $category)
     {
-        $category = Category::where('slug', $slug)->firstOrFail();
         $user = $request->user();
 
         $videos = $category->publishedVideos($user)
@@ -116,12 +114,13 @@ class HomeController extends Controller
         ]);
     }
 
-    public function loadCategoryVideos(Request $request, string $slug)
+    public function loadCategoryVideos(Request $request, Category $category)
     {
-        $category = Category::where('slug', $slug)->firstOrFail();
         $user = $request->user();
-        $offset = $request->get('offset', 0);
-        $limit = min($request->get('limit', 8), 20);
+        $offset = max((int) $request->get('offset', 0), 0);
+        $limit = min((int) $request->get('limit', 8), 20);
+
+        $total = $category->publishedVideos($user)->count();
 
         $videos = $category->publishedVideos($user)
             ->orderBy('created_on', 'desc')
@@ -129,7 +128,7 @@ class HomeController extends Controller
             ->limit($limit)
             ->get();
 
-        return response()->json(['videos' => $videos, 'total' => $videos->count()]);
+        return response()->json(['videos' => $videos, 'total' => $total]);
     }
 
     public function favorites(Request $request)
@@ -160,25 +159,16 @@ class HomeController extends Controller
         ]);
     }
 
-    private function canViewPlaylist(Playlist $playlist, $user): bool
+    private function enrichPlaylist(Playlist $playlist): array
     {
-        $access = ContentAccess::from($playlist->access);
+        $videos = $playlist->videos;
 
-        return match ($access) {
-            ContentAccess::PUBLIC, ContentAccess::UNLINKED => true,
-            ContentAccess::CENTRALIENS => $user !== null,
-            ContentAccess::PRIVATE => $user?->hasPermission('myclap.private') ?? false,
-        };
-    }
+        $data = $playlist->toArray();
+        unset($data['videos']);
 
-    private function enrichPlaylist(Playlist $playlist, $user): array
-    {
-        $videos = $playlist->getVideosCollection($user);
-        $totalDuration = $videos->sum('duration');
-
-        return array_merge($playlist->toArray(), [
+        return array_merge($data, [
             'video_count' => $videos->count(),
-            'total_duration' => $totalDuration,
+            'total_duration' => $videos->sum('duration'),
             'first_video_thumbnail' => $videos->first()?->thumbnail_url,
             'videos_preview' => $videos->take(5)->values(),
         ]);
