@@ -26,6 +26,10 @@ class VideoUploadService
             throw new UploadException('Vidéo déjà uploadée');
         }
 
+        if ($fileSize > config('media.max_video_upload_size')) {
+            throw new UploadException('La taille du fichier dépasse la limite autorisée.');
+        }
+
         $upload = VideoUpload::where('video_token', $video->token)->first();
         $startIndex = 0;
 
@@ -80,6 +84,11 @@ class VideoUploadService
 
         // Read and append the chunk
         $chunkContent = file_get_contents($chunkFile->getRealPath());
+
+        if ($chunkContent === false) {
+            throw new UploadException('Impossible de lire le chunk envoyé.');
+        }
+
         $chunkLength = strlen($chunkContent);
 
         if ($startIndex + $chunkLength > $upload->file_size) {

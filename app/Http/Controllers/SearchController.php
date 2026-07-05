@@ -36,8 +36,8 @@ class SearchController extends Controller
     public function searchApi(Request $request)
     {
         $user = $request->user();
-        $query = $request->get('q', '');
-        $limit = min((int) $request->get('limit', 20), 20);
+        $query = $request->query('q', '');
+        $limit = max(0, min((int) $request->query('limit', 20), 20));
 
         $baseQuery = Video::published()
             ->accessibleBy($user)

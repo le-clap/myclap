@@ -154,9 +154,9 @@ class PlaylistController extends Controller
 
     public function searchVideos(Request $request)
     {
-        $query = $request->get('q', '');
-        $limit = min((int) $request->get('limit', 5), 20);
-        $exclude = $request->get('exclude', []);
+        $query = $request->query('q', '');
+        $limit = max(0, min((int) $request->query('limit', 5), 20));
+        $exclude = $request->query('exclude', []);
 
         if (is_string($exclude)) {
             $exclude = json_decode($exclude, true) ?? [];
