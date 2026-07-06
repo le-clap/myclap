@@ -67,14 +67,12 @@ class PlaylistController extends Controller
 
         $playlist->syncVideosWithOrder($orderedTokens);
 
-        return redirect()->route('manager.playlists.edit', $playlist->slug)
+        return redirect()->route('manager.playlists.edit', $playlist)
             ->with('success', 'La playlist a été créée avec succès');
     }
 
-    public function edit(string $slug)
+    public function edit(Playlist $playlist)
     {
-        $playlist = Playlist::where('slug', $slug)->firstOrFail();
-
         // Get the videos in order via relationship
         $playlistVideos = $playlist->videos()->get();
 
@@ -86,10 +84,8 @@ class PlaylistController extends Controller
         ]);
     }
 
-    public function update(Request $request, string $slug)
+    public function update(Request $request, Playlist $playlist)
     {
-        $playlist = Playlist::where('slug', $slug)->firstOrFail();
-
         $validated = $request->validate([
             'name' => 'required|string|max:75',
             'description' => 'nullable|string|max:1000',
@@ -104,8 +100,8 @@ class PlaylistController extends Controller
         // Maintain order from request
         $orderedTokens = array_values(array_filter($videoTokens, fn ($t) => in_array($t, $validTokens)));
 
-        $previousType = (int) $playlist->type;
-        $nextType = (int) $validated['type'];
+        $previousType = $playlist->type;
+        $nextType = PlaylistType::from($validated['type']);
 
         $payload = [
             'name' => $validated['name'],
@@ -131,22 +127,20 @@ class PlaylistController extends Controller
         return back()->with('success', 'Les changements ont bien été sauvegardés');
     }
 
-    public function destroy(string $slug)
+    public function destroy(Playlist $playlist)
     {
-        $playlist = Playlist::where('slug', $slug)->firstOrFail();
         $playlist->delete();
 
         return redirect()->route('manager.playlists.index')
             ->with('success', 'La playlist a bien été supprimée');
     }
 
-    public function move(Request $request, string $slug)
+    public function move(Request $request, Playlist $playlist)
     {
         $validated = $request->validate([
             'direction' => 'required|string|in:up,down',
         ]);
 
-        $playlist = Playlist::where('slug', $slug)->firstOrFail();
         $direction = $validated['direction'];
 
         if ($direction === 'up') {
@@ -160,33 +154,37 @@ class PlaylistController extends Controller
 
     public function searchVideos(Request $request)
     {
-        $query = $request->get('q', '');
-        $limit = $request->get('limit', 5);
-        $exclude = $request->get('exclude', []);
+        $query = $request->query('q', '');
+        $limit = max(0, min((int) $request->query('limit', 5), 20));
+        $exclude = $request->query('exclude', []);
 
         if (is_string($exclude)) {
             $exclude = json_decode($exclude, true) ?? [];
         }
 
-        $videos = Video::published()
+        $baseQuery = Video::published()
             ->where(function ($q) use ($query) {
                 $q->where('name', 'ILIKE', "%{$query}%")
                     ->orWhere('token', 'ILIKE', "%{$query}%");
             })
             ->when(! empty($exclude), function ($q) use ($exclude) {
                 $q->whereNotIn('token', $exclude);
-            })
+            });
+
+        $total = (clone $baseQuery)->count();
+
+        $videos = $baseQuery
             ->orderBy('created_on', 'desc')
             ->limit($limit)
             ->get();
 
         return response()->json([
             'videos' => $videos,
-            'total' => $videos->count(),
+            'total' => $total,
         ]);
     }
 
-    private function normalizeTypeOrder(int $type): void
+    private function normalizeTypeOrder(PlaylistType $type): void
     {
         $playlistIds = Playlist::where('type', $type)
             ->orderBy('position')

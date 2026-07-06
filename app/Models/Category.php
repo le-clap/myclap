@@ -2,8 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\ContentAccess;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
@@ -30,6 +28,11 @@ class Category extends Model
         ];
     }
 
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+
     public function videos(): BelongsToMany
     {
         return $this->belongsToMany(
@@ -44,24 +47,6 @@ class Category extends Model
 
     public function publishedVideos(?User $user = null): BelongsToMany
     {
-        $query = $this->videos()->published();
-
-        if ($user) {
-            $query->whereIn('access', [
-                ContentAccess::CENTRALIENS->value,
-                ContentAccess::PUBLIC->value,
-            ]);
-        } else {
-            $query->where('access', ContentAccess::PUBLIC->value);
-        }
-
-        return $query;
-    }
-
-    protected function videoCount(): Attribute
-    {
-        return Attribute::make(
-            get: fn (): int => $this->videos()->published()->count(),
-        );
+        return $this->videos()->published()->accessibleBy($user);
     }
 }

@@ -4,15 +4,21 @@ namespace App\Http\Controllers;
 
 use App\Models\Video;
 use App\Services\ThumbnailService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class MediaController extends Controller
 {
-    public function video(Request $request, string $token)
+    public function __construct(
+        private readonly ThumbnailService $thumbnailService
+    ) {}
+
+    public function video(Request $request, Video $video): Response
     {
-        $video = Video::where('token', $token)->published()->firstOrFail();
+        abort_unless($video->isPublished(), 404);
 
         $this->authorize('view', $video);
 
@@ -23,10 +29,8 @@ class MediaController extends Controller
         $filename = Str::slug($video->name).'.mp4';
 
         // X-Accel-Redirect for nginx
-        $internalPath = '/internal-storage/'.$video->file_identifier;
-
         return response('', 200, [
-            'X-Accel-Redirect' => $internalPath,
+            'X-Accel-Redirect' => '/internal-storage/'.$video->file_identifier,
             'Content-Type' => 'video/mp4',
             'Content-Disposition' => 'inline; filename="'.$filename.'"',
             'Accept-Ranges' => 'bytes',
@@ -34,9 +38,9 @@ class MediaController extends Controller
         ]);
     }
 
-    public function videoDownload(Request $request, string $token)
+    public function videoDownload(Request $request, Video $video): Response
     {
-        $video = Video::where('token', $token)->published()->firstOrFail();
+        abort_unless($video->isPublished(), 404);
 
         $this->authorize('view', $video);
 
@@ -47,18 +51,15 @@ class MediaController extends Controller
         $filename = Str::slug($video->name).'.mp4';
 
         // X-Accel-Redirect for nginx
-        $internalPath = '/internal-storage/'.$video->file_identifier;
-
         return response('', 200, [
-            'X-Accel-Redirect' => $internalPath,
+            'X-Accel-Redirect' => '/internal-storage/'.$video->file_identifier,
             'Content-Type' => 'application/octet-stream',
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
 
-    public function thumbnail(Request $request, string $token)
+    public function thumbnail(Request $request, Video $video): Response|RedirectResponse
     {
-        $video = Video::where('token', $token)->firstOrFail();
         $size = (int) $request->query('size', 1080);
 
         $this->authorize('view', $video);
@@ -67,18 +68,15 @@ class MediaController extends Controller
             return $this->placeholderRedirect($size);
         }
 
-        $thumbnailService = app(ThumbnailService::class);
-        $path = $thumbnailService->getVariantPath($video->thumbnail_identifier, $size);
+        $path = $this->thumbnailService->getVariantPath($video->thumbnail_identifier, $size);
 
         if (! Storage::disk('local')->exists($path)) {
             return $this->placeholderRedirect($size);
         }
 
         // X-Accel-Redirect for nginx
-        $internalPath = '/internal-storage/'.$path;
-
         return response('', 200, [
-            'X-Accel-Redirect' => $internalPath,
+            'X-Accel-Redirect' => '/internal-storage/'.$path,
             'Content-Type' => 'image/jpeg',
             'Cache-Control' => 'private, max-age=86400',
         ]);
@@ -90,7 +88,7 @@ class MediaController extends Controller
         120 => 'placeholder-120.jpg',
     ];
 
-    private function placeholderRedirect(int $size = 1080)
+    private function placeholderRedirect(int $size = 1080): RedirectResponse
     {
         $placeholder = self::PLACEHOLDER_MAP[$size] ?? self::PLACEHOLDER_MAP[1080];
 

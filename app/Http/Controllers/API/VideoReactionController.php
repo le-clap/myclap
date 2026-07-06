@@ -9,19 +9,19 @@ use Illuminate\Http\Request;
 
 class VideoReactionController extends Controller
 {
-    public function toggle(Request $request, string $token)
+    public function toggle(Request $request, Video $video)
     {
         if (! $request->user()) {
             return response()->json(['error' => 'Authentication required'], 401);
         }
 
-        $video = Video::where('token', $token)->published()->firstOrFail();
+        abort_unless($video->isPublished(), 404);
 
         $this->authorize('view', $video);
 
         $username = $request->user()->username;
 
-        $reaction = VideoReaction::where('video_token', $token)
+        $reaction = VideoReaction::where('video_token', $video->token)
             ->where('username', $username)
             ->first();
 
@@ -31,7 +31,7 @@ class VideoReactionController extends Controller
             $active = false;
         } else {
             VideoReaction::create([
-                'video_token' => $token,
+                'video_token' => $video->token,
                 'username' => $username,
                 'created_on' => now(),
             ]);

@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\ContentAccess;
 use App\Models\Video;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -11,29 +10,21 @@ class SearchController extends Controller
 {
     public function index(Request $request)
     {
-        $query = $request->get('value', '');
+        $query = $request->query('value', '');
         $user = $request->user();
 
-        $videos = collect([]);
+        $videos = collect();
 
         if (strlen($query) >= 2) {
-            $videosQuery = Video::published()
+            $videos = Video::published()
+                ->accessibleBy($user)
                 ->where(function ($q) use ($query) {
                     $q->where('name', 'ILIKE', "%{$query}%")
                         ->orWhere('description', 'ILIKE', "%{$query}%");
                 })
-                ->orderBy('created_on', 'desc');
-
-            if ($user) {
-                $videosQuery->whereIn('access', [
-                    ContentAccess::CENTRALIENS->value,
-                    ContentAccess::PUBLIC->value,
-                ]);
-            } else {
-                $videosQuery->where('access', ContentAccess::PUBLIC->value);
-            }
-
-            $videos = $videosQuery->limit(50)->get();
+                ->orderBy('created_on', 'desc')
+                ->limit(50)
+                ->get();
         }
 
         return Inertia::render('Search/Index', [
@@ -45,26 +36,20 @@ class SearchController extends Controller
     public function searchApi(Request $request)
     {
         $user = $request->user();
-        $query = $request->get('q', '');
-        $limit = $request->get('limit', 20);
+        $query = $request->query('q', '');
+        $limit = max(0, min((int) $request->query('limit', 20), 20));
 
-        $videosQuery = Video::published()
-            ->where(function ($q) use ($query) {
-                $q->where('name', 'ILIKE', "%{$query}%");
-            })
-            ->orderBy('created_on', 'desc');
+        $baseQuery = Video::published()
+            ->accessibleBy($user)
+            ->where('name', 'ILIKE', "%{$query}%");
 
-        if ($user) {
-            $videosQuery->whereIn('access', [
-                ContentAccess::CENTRALIENS->value,
-                ContentAccess::PUBLIC->value,
-            ]);
-        } else {
-            $videosQuery->where('access', ContentAccess::PUBLIC->value);
-        }
+        $total = $baseQuery->clone()->count();
 
-        $videos = $videosQuery->limit($limit)->get();
+        $videos = $baseQuery
+            ->orderBy('created_on', 'desc')
+            ->limit($limit)
+            ->get();
 
-        return response()->json(['videos' => $videos, 'total' => $videos->count()]);
+        return response()->json(['videos' => $videos, 'total' => $total]);
     }
 }

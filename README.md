@@ -87,7 +87,7 @@ server {
 
     # Gestion des fichiers PHP
     location ~ \.php$ {
-        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
         include fastcgi_params;
@@ -114,4 +114,142 @@ Dans le fichier `.env`, configurer les paramètres pour l'authentification CLA :
 ```
 CLA_AUTH_HOST=https://centralelilleassos.fr
 CLA_AUTH_IDENTIFIER=myclap
+```
+
+## Schéma de la base de données
+
+```mermaid
+erDiagram
+
+    clap_user {
+        bigint id PK
+        string username UK
+        string first_name
+        string last_name
+        string school_email
+        int promo
+        bool alumni
+        timestamp created_on
+        timestamp logged_on
+        string remember_token
+    }
+
+    category {
+        bigint id PK
+        string slug UK
+        string label
+        text description
+        string created_by FK
+        timestamp created_on
+    }
+
+    playlist {
+        bigint id PK
+        string name
+        text description
+        tinyint type
+        string slug UK
+        tinyint access
+        uint position
+        timestamp created_on
+        timestamp modified_on
+        string modified_by FK
+    }
+
+    video {
+        bigint id PK
+        string name
+        string token UK
+        date created_on
+        text description
+        tinyint access
+        string thumbnail_identifier
+        string file_identifier
+        bigint file_size
+        int duration
+        tinyint upload_status
+        string uploaded_by FK
+        timestamp uploaded_on
+        int views
+        int reactions
+    }
+
+    video_category {
+        string video_token PK,FK
+        string category_slug PK,FK
+    }
+
+    playlist_video {
+        string playlist_slug PK,FK
+        string video_token PK,FK
+        int position
+    }
+
+    video_reaction {
+        bigint id PK
+        string video_token FK
+        string username FK
+        timestamp created_on
+    }
+
+    video_upload {
+        bigint id PK
+        string video_token FK
+        string file_name
+        bigint file_size
+        string file_identifier
+        string created_by FK
+        timestamp created_on
+    }
+
+    video_view {
+        bigint id PK
+        string video_token FK
+        string php_sid
+        string playback_sid
+        string username FK
+        bool count_as_view
+        int watch_time
+        string view_source
+        string device_type
+        string browser
+        string os
+        timestamp created_on
+        timestamp updated_on
+    }
+
+    user_permission {
+        bigint id PK
+        string username FK
+        string identifier
+        string created_by FK
+        timestamp created_on
+    }
+
+    clap_user ||--o{ category : creates
+
+    clap_user ||--o{ playlist : modifies
+
+    clap_user ||--o{ video : uploads
+
+    clap_user ||--o{ video_upload : creates
+
+    clap_user ||--o{ user_permission : owns
+    clap_user ||--o{ user_permission : grants
+
+    clap_user o|--o{ video_view : watches
+
+    clap_user ||--o{ video_reaction : reacts
+
+    category ||--o{ video_category : contains
+    video ||--o{ video_category : classified_as
+
+    playlist ||--o{ playlist_video : contains
+    video ||--o{ playlist_video : appears_in
+
+    video ||--o{ video_upload : has_uploads
+
+    video ||--o{ video_view : has_views
+
+    video ||--o{ video_reaction : has_reactions
 ```

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Exception;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Intervention\Image\Drivers\Gd\Driver;
@@ -55,20 +56,36 @@ class ThumbnailService
         $identifier = $this->generateIdentifier();
         $this->ensureDirectoryExists();
 
-        // Store original file temporarily to generate variants
-        $originalPath = $file->getRealPath();
+        // Persist the source so the variant generation can run
+        // after the response is sent, keeping the request non-blocking.
+        $sourcePath = Storage::disk('local')->path(self::THUMBNAILS_DIR.'/source_'.$identifier);
+        $file->move(dirname($sourcePath), basename($sourcePath));
 
-        // Generate all size variants
-        foreach (self::SIZES as [$width, $height]) {
-            $this->generateVariant($originalPath, $identifier, $width, $height);
-        }
+        defer(function () use ($sourcePath, $identifier) {
+            try {
+                // Read the source once, then derive every variant from memory.
+                $binary = file_get_contents($sourcePath);
+                foreach (self::SIZES as [$width, $height]) {
+                    $this->generateVariant($binary, $identifier, $width, $height);
+                }
+            } catch (\Throwable $e) {
+                Log::error('Thumbnail generation failed', [
+                    'identifier' => $identifier,
+                    'error' => $e->getMessage(),
+                ]);
+            } finally {
+                if (is_file($sourcePath)) {
+                    @unlink($sourcePath);
+                }
+            }
+        });
 
         return $identifier;
     }
 
-    private function generateVariant(string $sourcePath, string $identifier, int $width, int $height): void
+    private function generateVariant(string $binary, string $identifier, int $width, int $height): void
     {
-        $image = $this->manager->read($sourcePath);
+        $image = $this->manager->read($binary);
 
         // Calculate dimensions maintaining 16:9 aspect ratio
         $originalWidth = $image->width();

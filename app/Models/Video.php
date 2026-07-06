@@ -49,15 +49,25 @@ class Video extends Model
     protected function casts(): array
     {
         return [
-            'access' => 'integer',
+            'access' => ContentAccess::class,
             'views' => 'integer',
             'reactions' => 'integer',
             'duration' => 'integer',
             'file_size' => 'integer',
             'created_on' => 'date',
             'uploaded_on' => 'datetime',
-            'upload_status' => 'integer',
+            'upload_status' => UploadStatus::class,
         ];
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'token';
+    }
+
+    public function isPublished(): bool
+    {
+        return $this->upload_status === UploadStatus::UPLOAD_END;
     }
 
     // Relations
@@ -106,16 +116,17 @@ class Video extends Model
         return $query->where('upload_status', UploadStatus::UPLOAD_END->value);
     }
 
-    public function scopeAccessibleBy(Builder $query, ?User $user): Builder
+    public function scopeAccessibleBy(Builder $query, ?User $user, bool $includeUnlisted = false): Builder
     {
-        if ($user) {
-            return $query->whereIn('access', [
-                ContentAccess::CENTRALIENS->value,
-                ContentAccess::PUBLIC->value,
-            ]);
+        $accesses = $user
+            ? [ContentAccess::CENTRALIENS, ContentAccess::PUBLIC]
+            : [ContentAccess::PUBLIC];
+
+        if ($includeUnlisted) {
+            $accesses[] = ContentAccess::UNLINKED;
         }
 
-        return $query->where('access', ContentAccess::PUBLIC->value);
+        return $query->whereIn('access', array_map(fn (ContentAccess $a) => $a->value, $accesses));
     }
 
     // Accessors
@@ -127,22 +138,22 @@ class Video extends Model
     protected function thumbnailUrl(): Attribute
     {
         return Attribute::make(
-            get: fn () => route('watch.media.thumbnail', ['token' => $this->token, 'size' => 1080])
+            get: fn () => route('watch.media.thumbnail', ['video' => $this->token, 'size' => 1080])
         );
     }
 
     protected function thumbnailUrls(): Attribute
     {
         return Attribute::make(get: fn () => [
-            '1080' => route('watch.media.thumbnail', ['token' => $this->token, 'size' => 1080]),
-            '480' => route('watch.media.thumbnail', ['token' => $this->token, 'size' => 480]),
-            '120' => route('watch.media.thumbnail', ['token' => $this->token, 'size' => 120]),
+            '1080' => route('watch.media.thumbnail', ['video' => $this->token, 'size' => 1080]),
+            '480' => route('watch.media.thumbnail', ['video' => $this->token, 'size' => 480]),
+            '120' => route('watch.media.thumbnail', ['video' => $this->token, 'size' => 120]),
         ]);
     }
 
     protected function videoUrl(): Attribute
     {
-        return Attribute::make(get: fn () => route('watch.media.video', ['token' => $this->token]));
+        return Attribute::make(get: fn () => route('watch.media.video', ['video' => $this->token]));
     }
 
     protected function bitrate(): Attribute
@@ -156,24 +167,14 @@ class Video extends Model
         });
     }
 
-    protected function accessEnum(): Attribute
-    {
-        return Attribute::make(get: fn () => ContentAccess::from($this->access));
-    }
-
     protected function accessLabel(): Attribute
     {
-        return Attribute::make(get: fn () => $this->access_enum->label());
-    }
-
-    protected function uploadStatusEnum(): Attribute
-    {
-        return Attribute::make(get: fn () => UploadStatus::from($this->upload_status));
+        return Attribute::make(get: fn () => $this->access->label());
     }
 
     protected function uploadStatusLabel(): Attribute
     {
-        return Attribute::make(get: fn () => $this->upload_status_enum->label());
+        return Attribute::make(get: fn () => $this->upload_status->label());
     }
 
     public function syncCategories(array $categorySlugs): void

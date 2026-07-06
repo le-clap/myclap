@@ -13,9 +13,9 @@ class VideoStatController extends Controller
         private VideoStatService $statService
     ) {}
 
-    public function init(Request $request, string $token)
+    public function init(Request $request, Video $video)
     {
-        $video = Video::where('token', $token)->published()->firstOrFail();
+        abort_unless($video->isPublished(), 404);
 
         $this->authorize('view', $video);
 
@@ -24,9 +24,9 @@ class VideoStatController extends Controller
         return response()->json(['playback_sid' => $playbackSid]);
     }
 
-    public function update(Request $request, string $token)
+    public function update(Request $request, Video $video)
     {
-        $video = Video::where('token', $token)->published()->firstOrFail();
+        abort_unless($video->isPublished(), 404);
 
         $this->authorize('view', $video);
 

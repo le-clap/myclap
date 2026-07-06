@@ -1,5 +1,5 @@
 <script setup>
-import {Head, Link, usePage} from '@inertiajs/vue3'
+import {Head, Link, router, usePage} from '@inertiajs/vue3'
 import {computed, ref} from 'vue'
 import AppLayout from '@/Components/Layout/AppLayout.vue'
 import VideoPlayer from '@/Components/VideoPlayer.vue'
@@ -40,7 +40,7 @@ const nextVideo = computed(() => props.currentIndex < props.videos.length - 1 ? 
 
 async function toggleLike() {
     if (!user.value) {
-        window.location.href = '/login'
+        router.visit('/login')
         return
     }
 

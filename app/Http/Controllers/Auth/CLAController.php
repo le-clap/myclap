@@ -43,6 +43,7 @@ class CLAController extends Controller
         $user = $this->claAuth->createOrUpdateUser($claData);
 
         Auth::login($user, remember: true);
+        $request->session()->regenerate();
 
         return redirect()->intended('/');
     }

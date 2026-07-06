@@ -1,5 +1,5 @@
 <script setup>
-import {onMounted, ref} from 'vue'
+import {onMounted, onUnmounted, ref} from 'vue'
 import {Head} from '@inertiajs/vue3'
 import AppLayout from '@/Components/Layout/AppLayout.vue'
 import VideoCard from '@/Components/VideoCard.vue'
@@ -20,15 +20,22 @@ const allVideos = ref([])
 const loading = ref(false)
 const hasMore = ref(true)
 const currentBillboard = ref(0)
+let billboardTimer = null
 
 onMounted(() => {
     allVideos.value = [...props.videos]
 
     // Auto-rotate billboards
     if (props.billboards.length > 1) {
-        setInterval(() => {
+        billboardTimer = setInterval(() => {
             currentBillboard.value = (currentBillboard.value + 1) % props.billboards.length
         }, 10_000)
+    }
+})
+
+onUnmounted(() => {
+    if (billboardTimer) {
+        clearInterval(billboardTimer)
     }
 })
 
@@ -70,6 +77,10 @@ function getGradientStyle(color) {
 function goToBillboard(index) {
     currentBillboard.value = index
 }
+
+function billboardHref(url) {
+    return /^(https?:\/\/|\/)/i.test(url ?? '') ? url : '#'
+}
 </script>
 
 <template>
@@ -83,7 +94,7 @@ function goToBillboard(index) {
                     <a
                         v-for="(billboard, index) in billboards"
                         :key="billboard.identifier"
-                        :href="billboard.url"
+                        :href="billboardHref(billboard.url)"
                         :class="[
                             'block rounded-lg p-8 md:p-12 text-center transition-opacity duration-500',
                             index === currentBillboard ? 'opacity-100' : 'opacity-0 absolute inset-0'
