@@ -10,10 +10,10 @@ class SearchController extends Controller
 {
     public function index(Request $request)
     {
-        $query = $request->get('value', '');
+        $query = $request->query('value', '');
         $user = $request->user();
 
-        $videos = collect([]);
+        $videos = collect();
 
         if (strlen($query) >= 2) {
             $videos = Video::published()
@@ -41,9 +41,7 @@ class SearchController extends Controller
 
         $baseQuery = Video::published()
             ->accessibleBy($user)
-            ->where(function ($q) use ($query) {
-                $q->where('name', 'ILIKE', "%{$query}%");
-            });
+            ->where('name', 'ILIKE', "%{$query}%");
 
         $total = $baseQuery->clone()->count();
 
