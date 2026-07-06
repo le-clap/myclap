@@ -103,7 +103,7 @@ class VideoController extends Controller
         $appendablePlaylists = collect();
         if ($user->hasPermission('manager.playlist')) {
             $appendablePlaylists = Playlist::orderedForDisplay()
-                ->get(['slug', 'name', 'type'])
+                ->get(['slug', 'name', 'type', 'access'])
                 ->values();
         }
 
