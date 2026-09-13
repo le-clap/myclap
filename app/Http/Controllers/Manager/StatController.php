@@ -62,7 +62,7 @@ class StatController extends Controller
             ->get();
 
         // Recent views globally (anonymized for privacy)
-        $recentViews = VideoView::with('video:token,name,uploaded_by')
+        $recentViews = VideoView::with('video:token,name,uploaded_by,access,upload_status')
             ->where('count_as_view', 1)
             ->orderByDesc('created_on')
             ->limit(50)
