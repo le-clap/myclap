@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Video;
+use App\Services\Media\VideoProbe;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
@@ -10,7 +11,13 @@ use Symfony\Component\Process\Process;
 
 class VideoService
 {
-    public function getVideoDuration(string $filePath): ?int
+    /**
+     * Run ffprobe and return a full VideoProbe (codec, resolution, measured
+     * bitrate, faststart, ...), or null if the file is missing or ffprobe
+     * can't make sense of it (used as the "is this a real, decodable video"
+     * gate at upload finalize).
+     */
+    public function probe(string $filePath): ?VideoProbe
     {
         $fullPath = Storage::disk('local')->path($filePath);
 
@@ -19,10 +26,11 @@ class VideoService
         }
 
         $process = new Process([
-            'ffprobe',
+            config('media.ffprobe_path', 'ffprobe'),
             '-v', 'error',
-            '-show_entries', 'format=duration',
-            '-of', 'default=noprint_wrappers=1:nokey=1',
+            '-print_format', 'json',
+            '-show_format',
+            '-show_streams',
             $fullPath,
         ]);
         $process->setTimeout((float) config('media.ffprobe_timeout', 30));
@@ -51,9 +59,26 @@ class VideoService
             return null;
         }
 
-        $duration = (int) round((float) $output);
+        try {
+            $json = json_decode($output, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            Log::warning("ffprobe returned invalid JSON for {$filePath}: {$e->getMessage()}");
 
-        return $duration > 0 ? $duration : null;
+            return null;
+        }
+
+        return VideoProbe::fromFfprobeJson($json, $this->detectFaststart($fullPath));
+    }
+
+    public function getVideoDuration(string $filePath): ?int
+    {
+        $probe = $this->probe($filePath);
+
+        if ($probe === null || ! $probe->hasVideoStream() || $probe->duration <= 0) {
+            return null;
+        }
+
+        return (int) round($probe->duration);
     }
 
     public function getVideoFileSize(string $filePath): ?int
@@ -98,11 +123,85 @@ class VideoService
             return;
         }
 
-        $video->duration = $this->getVideoDuration($video->file_identifier);
+        $probe = $this->probe($video->file_identifier);
+
+        $video->duration = $probe?->hasVideoStream() ? (int) round($probe->duration) : null;
         $video->file_size = $this->getVideoFileSize($video->file_identifier);
+
+        $video->video_codec = $probe?->videoCodec;
+        $video->audio_codec = $probe?->audioCodec;
+        $video->width = $probe?->width;
+        $video->height = $probe?->height;
+        $video->bitrate = $probe?->videoBitrate;
+        $video->faststart = $probe?->faststart;
 
         if ($video->isDirty()) {
             $video->save();
+        }
+    }
+
+    /**
+     * ffprobe never reports whether an MP4/MOV's `moov` atom (its index)
+     * comes before or after `mdat` (the media data) — walk the top-level
+     * ISO-BMFF boxes ourselves. A non-MP4 container (e.g. Matroska/WebM)
+     * fails this walk almost immediately, which correctly reports false.
+     */
+    private function detectFaststart(string $fullPath): bool
+    {
+        $handle = @fopen($fullPath, 'rb');
+
+        if ($handle === false) {
+            return false;
+        }
+
+        try {
+            for ($i = 0; $i < 64; $i++) {
+                $header = fread($handle, 8);
+
+                if ($header === false || strlen($header) < 8) {
+                    return false;
+                }
+
+                ['size' => $size, 'type' => $type] = unpack('Nsize/a4type', $header);
+
+                if (! preg_match('/^[a-zA-Z0-9]{4}$/', $type)) {
+                    return false;
+                }
+
+                if ($type === 'moov') {
+                    return true;
+                }
+
+                if ($type === 'mdat') {
+                    return false;
+                }
+
+                if ($size === 1) {
+                    // Size==1 means the real (64-bit) size follows as the
+                    // next 8 bytes, counted from the start of this box.
+                    $extended = fread($handle, 8);
+
+                    if ($extended === false || strlen($extended) < 8) {
+                        return false;
+                    }
+
+                    $size = unpack('J', $extended)[1]; // J = uint64, big-endian
+                    $skip = $size - 16;
+                } elseif ($size === 0) {
+                    // Box extends to EOF (last box in the file) — moov isn't here.
+                    return false;
+                } else {
+                    $skip = $size - 8;
+                }
+
+                if ($skip < 0 || fseek($handle, $skip, SEEK_CUR) !== 0) {
+                    return false;
+                }
+            }
+
+            return false;
+        } finally {
+            fclose($handle);
         }
     }
 }

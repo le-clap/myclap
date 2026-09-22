@@ -2,27 +2,26 @@
 
 namespace App\Services;
 
+use App\Enums\TranscodeStatus;
 use App\Enums\UploadStatus;
 use App\Exceptions\UploadException;
+use App\Jobs\TranscodeVideoJob;
 use App\Models\Video;
 use App\Models\VideoUpload;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class VideoUploadService
 {
-    private const MIN_CHUNK_SIZE = 0.1 * 1024 * 1024; // 0.1 MB
-
-    private const MAX_CHUNK_SIZE = 10 * 1024 * 1024;  // 10 MB
-
     public function __construct(
         private readonly VideoService $videoService
     ) {}
 
     public function initUpload(Video $video, string $fileName, int $fileSize, string $username): array
     {
-        if ($video->upload_status === UploadStatus::UPLOAD_END) {
+        if (in_array($video->upload_status, [UploadStatus::UPLOAD_END, UploadStatus::UPLOAD_PROCESSING], true)) {
             throw new UploadException('Vidéo déjà uploadée');
         }
 
@@ -30,7 +29,7 @@ class VideoUploadService
             throw new UploadException('La taille du fichier dépasse la limite autorisée.');
         }
 
-        $upload = VideoUpload::where('video_token', $video->token)->first();
+        $upload = $video->upload;
         $startIndex = 0;
 
         if ($upload) {
@@ -66,17 +65,16 @@ class VideoUploadService
 
         return [
             'startIndex' => $startIndex,
-            'chunkSize' => (int) self::MIN_CHUNK_SIZE,
+            'chunkSize' => config('media.upload_chunk_size'),
         ];
     }
 
-    public function processChunk(Video $video, $chunkFile, int $startIndex, int $chunkSize): array
+    public function processChunk(Video $video, $chunkFile, int $startIndex): array
     {
-        $upload = VideoUpload::where('video_token', $video->token)->firstOrFail();
+        $upload = $video->upload()->firstOrFail();
 
         $path = Storage::disk('local')->path($upload->file_identifier);
-        clearstatcache(true, $path);
-        $currentSize = file_exists($path) ? filesize($path) : 0;
+        $currentSize = $this->fileSizeOrZero($path);
 
         if ($startIndex !== $currentSize) {
             throw new UploadException("Index incorrect : attendu {$currentSize}, reçu {$startIndex}");
@@ -90,9 +88,10 @@ class VideoUploadService
         }
 
         $chunkLength = strlen($chunkContent);
+        $expectedLength = min(config('media.upload_chunk_size'), $upload->file_size - $startIndex);
 
-        if ($startIndex + $chunkLength > $upload->file_size) {
-            throw new UploadException('La taille du fichier dépasse la taille annoncée.');
+        if ($chunkLength !== $expectedLength) {
+            throw new UploadException("Taille de chunk invalide : attendu {$expectedLength} octets, reçu {$chunkLength}.");
         }
 
         $written = file_put_contents($path, $chunkContent, FILE_APPEND);
@@ -103,44 +102,26 @@ class VideoUploadService
 
         $newSize = $startIndex + $written;
 
-        if ($newSize >= $upload->file_size) {
-            return [
-                'completed' => true,
-                'startIndex' => $newSize,
-                'chunkSize' => $chunkSize,
-            ];
-        }
-
-        // Clamp the next chunk size to the accepted range
-        $adaptiveChunkSize = min(
-            (int) self::MAX_CHUNK_SIZE,
-            max((int) self::MIN_CHUNK_SIZE, $chunkSize)
-        );
-
         return [
-            'completed' => false,
+            'completed' => $newSize >= $upload->file_size,
             'startIndex' => $newSize,
-            'chunkSize' => $adaptiveChunkSize,
         ];
     }
 
     public function finalizeUpload(Video $video): void
     {
-        $upload = VideoUpload::where('video_token', $video->token)->firstOrFail();
+        $upload = $video->upload()->firstOrFail();
 
         $tempPath = $upload->file_identifier;
         $path = Storage::disk('local')->path($tempPath);
 
         // The whole declared payload must have been received
-        clearstatcache(true, $path);
-        if (! file_exists($path) || filesize($path) !== $upload->file_size) {
+        if ($this->fileSizeOrZero($path) !== $upload->file_size) {
             throw new UploadException("Toute la ressource n'a pas été correctement téléversée. Veuillez recommencer.");
         }
 
-        // Validate the assembled file is actually a decodable video before we
-        // commit it. Doubles as the single metadata probe for this upload.
-        $duration = $this->videoService->getVideoDuration($tempPath);
-        if ($duration === null) {
+        $probe = $this->videoService->probe($tempPath);
+        if ($probe === null || ! $probe->hasVideoStream()) {
             Storage::disk('local')->delete($tempPath);
             $upload->delete();
             $video->upload_status = UploadStatus::UPLOAD_NULL;
@@ -151,24 +132,24 @@ class VideoUploadService
 
         $finalIdentifier = 'videos/'.Str::random(10).'.mp4';
 
-        // Ensure videos directory exists
-        $videosDir = Storage::disk('local')->path('videos');
-        if (! is_dir($videosDir)) {
-            mkdir($videosDir, 0755, true);
-        }
-
-        // Move the assembled file into place, then commit the DB changes
-        // atomically. If the transaction fails, roll the file move back so the
-        // upload can be retried cleanly.
+        Storage::disk('local')->makeDirectory('videos');
         Storage::disk('local')->move($tempPath, $finalIdentifier);
 
+        $transcodeEnabled = (bool) config('media.transcode_enabled');
+
         try {
-            DB::transaction(function () use ($video, $upload, $finalIdentifier, $duration) {
+            DB::transaction(function () use ($video, $upload, $finalIdentifier, $probe, $transcodeEnabled) {
                 $video->file_identifier = $finalIdentifier;
-                $video->upload_status = UploadStatus::UPLOAD_END;
+                $video->upload_status = $transcodeEnabled ? UploadStatus::UPLOAD_PROCESSING : UploadStatus::UPLOAD_END;
                 $video->uploaded_on = now();
-                $video->duration = $duration;
+                $video->duration = (int) round($probe->duration);
                 $video->file_size = $upload->file_size;
+                $video->video_codec = $probe->videoCodec;
+                $video->audio_codec = $probe->audioCodec;
+                $video->width = $probe->width;
+                $video->height = $probe->height;
+                $video->bitrate = $probe->videoBitrate;
+                $video->faststart = $probe->faststart;
                 $video->save();
 
                 $upload->delete();
@@ -180,16 +161,39 @@ class VideoUploadService
 
             throw $e;
         }
+
+        if ($transcodeEnabled) {
+            $attempt = $video->transcodeAttempts()->create([
+                'status' => TranscodeStatus::PENDING,
+                'started_on' => now(),
+            ]);
+
+            try {
+                TranscodeVideoJob::dispatch($video, $attempt);
+            } catch (\Throwable $e) {
+                Log::error('Failed to dispatch TranscodeVideoJob after upload finalize', [
+                    'video' => $video->token,
+                    'exception' => $e,
+                ]);
+
+                $video->upload_status = UploadStatus::UPLOAD_END;
+                $video->save();
+
+                $attempt->update([
+                    'status' => TranscodeStatus::FAILED,
+                    'error' => 'La mise en file pour vérification a échoué.',
+                    'finished_on' => now(),
+                ]);
+            }
+        }
     }
 
     public function resetUpload(Video $video): void
     {
-        $upload = VideoUpload::where('video_token', $video->token)->first();
+        $upload = $video->upload;
 
         if ($upload) {
-            if (Storage::disk('local')->exists($upload->file_identifier)) {
-                Storage::disk('local')->delete($upload->file_identifier);
-            }
+            Storage::disk('local')->delete($upload->file_identifier);
             $upload->delete();
         }
 
@@ -199,15 +203,13 @@ class VideoUploadService
 
     public function getUploadProgress(Video $video): ?array
     {
-        $upload = VideoUpload::where('video_token', $video->token)->first();
+        $upload = $video->upload;
 
         if (! $upload) {
             return null;
         }
 
-        $path = Storage::disk('local')->path($upload->file_identifier);
-        clearstatcache(true, $path);
-        $currentSize = file_exists($path) ? filesize($path) : 0;
+        $currentSize = $this->fileSizeOrZero(Storage::disk('local')->path($upload->file_identifier));
 
         return [
             'fileName' => $upload->file_name,
@@ -215,5 +217,18 @@ class VideoUploadService
             'uploadedSize' => $currentSize,
             'percentage' => $upload->file_size > 0 ? round(($currentSize / $upload->file_size) * 100, 2) : 0,
         ];
+    }
+
+    /**
+     * clearstatcache() is required here: PHP caches filesize() per path for
+     * the request, but these paths are being written to (chunk-by-chunk, or
+     * concurrently by another request polling progress) within the same
+     * request lifecycle.
+     */
+    private function fileSizeOrZero(string $fullPath): int
+    {
+        clearstatcache(true, $fullPath);
+
+        return file_exists($fullPath) ? filesize($fullPath) : 0;
     }
 }

@@ -4,7 +4,8 @@
 
 Site web de VOD du CLAP en Laravel : https://my.le-clap.fr
 
-Cette V2 remise au goût du jour en 2026 du projet original de [Jean-Baptiste Caplan](https://github.com/jnbptstcpln/myclap)
+Cette V2 remise au goût du jour en 2026 du projet original
+de [Jean-Baptiste Caplan](https://github.com/jnbptstcpln/myclap)
 a été développée par [David Marembert](https://github.com/D0gmaDev).
 
 Le site est hébergé par l'[Association Rézoléo](https://github.com/rezoleo).
@@ -18,13 +19,16 @@ Ce site permet à travers différentes sections de :
 - Construire des playlists
 - Permettre aux centraliens de s'authentifier avec leur compte CLA
 - Définir la politique d'accès des vidéos et playlists :
-  - **Publique** : n'importe qui peut y accéder
-  - **Non répertoriée** : seules les personnes disposant du lien peuvent y accéder
-  - **Centraliens** : tous les centraliens connectés via CLA peuvent y accéder
-  - **Privée** : seuls les membres du CLAP autorisés peuvent y accéder
+    - **Publique** : n'importe qui peut y accéder
+    - **Non répertoriée** : seules les personnes disposant du lien peuvent y accéder
+    - **Centraliens** : tous les centraliens connectés via CLA peuvent y accéder
+    - **Privée** : seuls les membres du CLAP autorisés peuvent y accéder
 - Voir les statistiques de visionnage
 
 ## Installation
+
+Prérequis serveur : PHP 8.4, PostgreSQL, et **`ffmpeg`/`ffprobe`** (utilisés pour valider et normaliser les vidéos
+envoyées — voir [Service de transcodage](#service-de-transcodage)).
 
 Après avoir récupéré le code depuis le repo GitHub :
 
@@ -34,7 +38,8 @@ npm install
 npm run build
 ```
 
-Copier le fichier `.env.example` en `.env` et configurer les variables d'environnement (base de données, Auth CLA, etc.).
+Copier le fichier `.env.example` en `.env` et configurer les variables d'environnement (base de données, Auth CLA,
+etc.).
 
 Générer la clé d'application :
 
@@ -53,6 +58,74 @@ Créer les liens symboliques pour le stockage :
 ```bash
 php artisan storage:link
 ```
+
+## Service de transcodage
+
+Chaque vidéo envoyée est probée (`ffprobe`, via `VideoService::probe()`) puis classée par
+`App\Services\Media\TranscodePolicy` :
+
+- **Conforme** : le fichier respecte déjà les critères ci-dessous — rien n'est modifié.
+- **Remux** : seuls le conteneur ou le placement de l'index (`moov`) sont à corriger → recopie sans perte des flux
+  (`-c copy`), quelques secondes.
+- **Ré-encodage** : codec, profil, résolution, format de pixel ou débit non conformes → ré-encodage complet H.264/AAC
+  (`libx264`), peut prendre plusieurs minutes.
+
+Les critères de conformité (codec H.264, profils autorisés, niveau max, résolution max 1920×1080, audio AAC stéréo,
+plafonds de débit par résolution) et les paramètres d'encodage (preset, CRF, débit audio) sont dans `config/media.php`
+(clés `compliance` et `encode`).
+
+**Publication.** Tant que la vérification d'un envoi n'a pas abouti, la vidéo n'est **pas publiée** (elle n'apparaît
+nulle part et son lien direct répond 404) — pour éviter de publier un fichier illisible par le navigateur. Le fichier
+original n'est jamais modifié en place : le job (`App\Jobs\TranscodeVideoJob`) écrit toujours vers un nouveau fichier,
+ne bascule le pointeur en base qu'une fois le résultat vérifié, puis supprime l'ancien — une vidéo déjà publiée reste
+donc visible et lisible pendant toute l'opération, y compris lors d'un ré-encodage manuel.
+
+**Historique (`video_transcode`).** Chaque vérification/ré-encodage écrit une ligne dans cette table — action prise
+(skip/remux/encode), statut, raison, erreur, horodatage — plutôt que d'écraser un statut unique sur `video` :
+`transcode_status` n'est lu par aucune page publique (contrairement à `upload_status`, vérifié à chaque vue), donc rien
+ne justifiait de le dénormaliser sur `video` au prix de perdre l'historique. `Video::latestTranscodeAttempt()` (une
+relation `hasOne(...)->latestOfMany()`) donne l'état courant sans requête par ligne sur les pages liste. Les colonnes
+qui restent sur `video` (`video_codec`, `width`, `height`, `bitrate`, `faststart`) décrivent le fichier actuel, pas le
+déroulement d'une tentative — au même titre que `duration`/`file_size`, et nécessaires à `TranscodePolicy` pour sa
+*prochaine* décision.
+
+**Interface manager.** Relancer une vérification se fait depuis la fiche de la vidéo (bouton Vérifier/Revérifier/
+Réessayer selon son état). L'onglet **Transcodage** (`/manager/transcodage`) est un historique en lecture seule de
+toutes les tentatives, plus récentes en premier, filtrable par statut et par vidéo — le détail action/erreur/raison vit
+uniquement là ; les pages Vidéos restent centrées sur le contenu (nom, accès, vues, poids, bitrate).
+
+### Mise en route
+
+Ce traitement tourne de façon asynchrone via la queue Laravel (tables `jobs`/`failed_jobs`, créées par les migrations
+du projet — rien à générer soi-même) et nécessite un worker dédié qui tourne en continu :
+
+```bash
+php artisan queue:work --queue=transcode --tries=1 --timeout=0
+```
+
+En local, `composer dev` démarre déjà ce worker (`queue:listen --queue=default,transcode`). En production, utiliser le
+service systemd fourni dans `deploy/myclap-transcoder.service` (à copier dans `/etc/systemd/system/`, puis
+`systemctl enable --now myclap-transcoder`).
+
+**Après chaque déploiement, ou toute modification du code touchant au job/aux services de transcodage, relancer
+`php artisan queue:restart`.** Un worker déjà démarré garde l'ancien code chargé en mémoire tant qu'il n'a pas
+redémarré — sans ce redémarrage, les modifications sont invisibles pour lui alors même que le reste de l'application les
+utilise déjà.
+
+### Variables d'environnement
+
+| Variable                       | Rôle                                                                                                                                                                                                                                                                                                                        |
+|--------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `TRANSCODE_ENABLED`            | Coupe-circuit : si `false` (ou si le worker n'est pas démarré), les vidéos envoyées sont publiées immédiatement sans vérification, comme avant l'existence de cette fonctionnalité. À utiliser uniquement en cas de panne du worker, pour ne pas bloquer les envois.                                                        |
+| `FFMPEG_PATH` / `FFPROBE_PATH` | Chemins des binaires (les deux doivent être installés sur l'hôte).                                                                                                                                                                                                                                                          |
+| `MEDIA_X_ACCEL_REDIRECT`       | **`true` uniquement derrière nginx** (voir `nginx.conf` et [Configuration Nginx](#configuration-nginx)). `X-Accel-Redirect` est une directive nginx ; sans nginx devant (ex. `php artisan serve` en local), la laisser à `false` (défaut) — sinon vidéos et miniatures renvoient une réponse `200` vide au lieu du fichier. |
+
+### Vidéos déjà en ligne (backlog)
+
+Les vidéos existantes ne sont jamais transcodées automatiquement en masse. `php artisan videos:sync-metadata` (re-)probe
+chaque vidéo et remplit les colonnes techniques (`video_codec`, `width`, `height`, `bitrate`, `faststart`) sans jamais
+ré-encoder ni créer de ligne d'historique — une vidéo jamais vérifiée n'a simplement aucune ligne dans
+`video_transcode` ; à traiter vidéo par vidéo via le bouton Vérifier de sa fiche.
 
 ## Configuration Nginx
 
@@ -105,7 +178,8 @@ server {
 }
 ```
 
-Vérifier que l'utilisateur du serveur web ait les permissions en écriture sur les dossiers `storage` et `bootstrap/cache`.
+Vérifier que l'utilisateur du serveur web ait les permissions en écriture sur les dossiers `storage` et
+`bootstrap/cache`.
 
 ## Configuration CLA Auth
 
@@ -120,7 +194,6 @@ CLA_AUTH_IDENTIFIER=myclap
 
 ```mermaid
 erDiagram
-
     clap_user {
         bigint id PK
         string username UK
@@ -172,16 +245,33 @@ erDiagram
         timestamp uploaded_on
         int views
         int reactions
+        string video_codec
+        string audio_codec
+        int width
+        int height
+        bigint bitrate
+        bool faststart
+    }
+
+    video_transcode {
+        bigint id PK
+        string video_token FK
+        string action
+        tinyint status
+        text reason
+        text error
+        timestamp started_on
+        timestamp finished_on
     }
 
     video_category {
-        string video_token PK,FK
-        string category_slug PK,FK
+        string video_token PK, FK
+        string category_slug PK, FK
     }
 
     playlist_video {
-        string playlist_slug PK,FK
-        string video_token PK,FK
+        string playlist_slug PK, FK
+        string video_token PK, FK
         int position
     }
 
@@ -226,30 +316,20 @@ erDiagram
         timestamp created_on
     }
 
-    clap_user ||--o{ category : creates
-
-    clap_user ||--o{ playlist : modifies
-
-    clap_user ||--o{ video : uploads
-
-    clap_user ||--o{ video_upload : creates
-
-    clap_user ||--o{ user_permission : owns
-    clap_user ||--o{ user_permission : grants
-
-    clap_user o|--o{ video_view : watches
-
-    clap_user ||--o{ video_reaction : reacts
-
-    category ||--o{ video_category : contains
-    video ||--o{ video_category : classified_as
-
-    playlist ||--o{ playlist_video : contains
-    video ||--o{ playlist_video : appears_in
-
-    video ||--o{ video_upload : has_uploads
-
-    video ||--o{ video_view : has_views
-
-    video ||--o{ video_reaction : has_reactions
+    clap_user ||--o{ category: creates
+    clap_user ||--o{ playlist: modifies
+    clap_user ||--o{ video: uploads
+    clap_user ||--o{ video_upload: creates
+    clap_user ||--o{ user_permission: owns
+    clap_user ||--o{ user_permission: grants
+    clap_user o|--o{ video_view: watches
+    clap_user ||--o{ video_reaction: reacts
+    category ||--o{ video_category: contains
+    video ||--o{ video_category: classified_as
+    playlist ||--o{ playlist_video: contains
+    video ||--o{ playlist_video: appears_in
+    video ||--o{ video_upload: has_uploads
+    video ||--o{ video_view: has_views
+    video ||--o{ video_transcode: has_attempts
+    video ||--o{ video_reaction: has_reactions
 ```

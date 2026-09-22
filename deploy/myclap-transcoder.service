@@ -1,0 +1,20 @@
+[Unit]
+Description=myCLAP transcode worker
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/myclap-v2
+ExecStart=/usr/bin/nice -n 19 /usr/bin/ionice -c2 -n7 \
+  /usr/bin/php artisan queue:work --queue=transcode \
+  --sleep=5 --tries=1 --timeout=0 --memory=256 --max-time=3600
+Restart=always
+RestartSec=5
+CPUQuota=200%
+StandardOutput=append:/var/www/myclap-v2/storage/logs/transcoder.log
+StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target

@@ -1,9 +1,10 @@
 <script setup>
+import {computed} from 'vue'
 import {Head, Link, router, useForm} from '@inertiajs/vue3'
 import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
 import DatePicker from '@/Components/DatePicker.vue'
 import {formatDuration} from '@/utils/date'
-import {formatBitrate, formatFileSize} from '@/utils/video'
+import {formatBitrate, formatFileSize, getDisplayStatus} from '@/utils/video'
 
 const props = defineProps({
     video: {
@@ -33,19 +34,6 @@ const form = useForm({
     thumbnail: null,
 })
 
-function getStatusClass(status) {
-    switch (status) {
-        case 0:
-            return 'bg-green-500/20 text-green-400'
-        case 1:
-            return 'bg-yellow-500/20 text-yellow-400'
-        case 2:
-            return 'bg-gray-500/20 text-gray-400'
-        default:
-            return 'bg-gray-500/20 text-gray-400'
-    }
-}
-
 function submit() {
     // With forceFormData, Laravel's form.put() doesn't work, so we need to use method spoofing.
     form.transform(data => ({ ...data, _method: 'PUT' }))
@@ -68,6 +56,30 @@ function deleteVideo() {
         router.delete(`/manager/videos/v/${props.video.token}`)
     }
 }
+
+const isAttemptInFlight = computed(() => [1, 2].includes(props.video.latest_transcode_attempt?.status))
+
+const recheckLabel = computed(() => {
+    if (isAttemptInFlight.value) {
+        return 'Traitement en cours...'
+    }
+
+    switch (props.video.latest_transcode_attempt?.status) {
+        case 3: // COMPLIANT
+        case 4: // TRANSCODED
+            return 'Revérifier'
+        case 5: // FAILED
+            return 'Réessayer'
+        default:
+            return 'Vérifier'
+    }
+})
+
+function recheckTranscode() {
+    router.post(`/manager/videos/v/${props.video.token}/transcode`, {}, {
+        preserveScroll: true,
+    })
+}
 </script>
 
 <template>
@@ -78,7 +90,7 @@ function deleteVideo() {
                 <h1 class="text-2xl font-bold">Modifier la vidéo</h1>
                 <div class="flex gap-2">
                     <Link
-                        v-if="video.upload_status !== 0"
+                        v-if="video.upload_status !== 0 && video.upload_status !== 3"
                         :href="`/manager/videos/v/${video.token}/envoyer`"
                         class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                     >
@@ -91,12 +103,21 @@ function deleteVideo() {
                     >
                         Voir
                     </Link>
+                    <button
+                        v-if="video.upload_status === 0"
+                        type="button"
+                        :disabled="isAttemptInFlight"
+                        class="px-4 py-2 bg-dark-border hover:bg-[#3a3a3a] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        @click="recheckTranscode"
+                    >
+                        {{ recheckLabel }}
+                    </button>
                 </div>
             </div>
 
             <!-- Status -->
             <div class="bg-dark-surface rounded-lg p-4 mb-6">
-                <div class="flex items-center gap-4">
+                <div class="flex items-center gap-4 flex-wrap">
                     <span class="text-sm text-gray-400">Token:</span>
                     <code class="bg-dark-border px-2 py-1 rounded">{{ video.token }}</code>
                     <span v-if="video.duration" class="text-sm text-gray-400">Durée:</span>
@@ -111,10 +132,18 @@ function deleteVideo() {
                     <code v-if="video.bitrate" class="bg-dark-border px-2 py-1 rounded">
                         {{ formatBitrate(video.bitrate) }}
                     </code>
-                    <span :class="['ml-auto px-2 py-1 rounded', getStatusClass(video.upload_status)]">
-                        {{ video.upload_status_label }}
+                    <span class="text-sm text-gray-400">Vues:</span>
+                    <code class="bg-dark-border px-2 py-1 rounded">{{ video.views?.toLocaleString() || 0 }}</code>
+                    <span class="text-sm text-gray-400">Réactions:</span>
+                    <code class="bg-dark-border px-2 py-1 rounded">{{ video.reactions?.toLocaleString() || 0 }}</code>
+                    <span :class="['ml-auto px-2 py-1 rounded', getDisplayStatus(video).class]">
+                        {{ getDisplayStatus(video).label }}
                     </span>
                 </div>
+                <p v-if="getDisplayStatus(video).needsAttention" class="text-sm text-red-400 mt-3">
+                    {{ video.latest_transcode_attempt?.error || 'La vérification automatique de cette vidéo a échoué.' }}
+                    <Link :href="`/manager/transcodage?q=${video.token}&status=all`" class="underline hover:text-red-300">Voir l'historique</Link>
+                </p>
             </div>
 
             <form @submit.prevent="submit" class="space-y-6">
