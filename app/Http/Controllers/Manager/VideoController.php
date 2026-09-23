@@ -55,7 +55,23 @@ class VideoController extends Controller
             $videosQuery->search($query);
         }
 
-        $videosQuery->sortBy($sort, $allowedSortFields, nullableLast: ['bitrate']);
+        $sortDir = str_starts_with($sort, '-') ? 'desc' : 'asc';
+        $sortBy = ltrim($sort, '-');
+
+        if (! in_array($sortBy, $allowedSortFields, true)) {
+            $sortBy = 'uploaded_on';
+            $sortDir = 'desc';
+        }
+
+        if ($sortBy === 'bitrate') {
+            $videosQuery->orderByRaw("bitrate {$sortDir} NULLS LAST");
+        } else {
+            $videosQuery->orderBy($sortBy, $sortDir);
+        }
+
+        if ($sortBy !== 'uploaded_on') {
+            $videosQuery->orderByDesc('uploaded_on');
+        }
 
         $videos = $videosQuery
             ->paginate($limit)
@@ -240,7 +256,7 @@ class VideoController extends Controller
 
     public function transcode(Request $request, Video $video)
     {
-        $this->authorize('transcode', $video);
+        $this->authorize('update', $video);
 
         if (! $video->file_identifier) {
             abort(404);
@@ -261,7 +277,7 @@ class VideoController extends Controller
 
         TranscodeVideoJob::dispatch($video, $attempt);
 
-        return back()->with('success', 'La vidéo a été mise en file pour vérification/ré-encodage.');
+        return back()->with('success', 'Vérification lancée.');
     }
 
     public function destroy(Request $request, Video $video)

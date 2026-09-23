@@ -14,6 +14,10 @@ class TranscodeService
 {
     private const string TEMP_DIR = 'videos/.tmp';
 
+    private const int ORPHAN_TTL_HOURS = 24;
+
+    private const float FREE_SPACE_SAFETY_FACTOR = 1.3;
+
     public function __construct(
         private readonly VideoService $videoService,
         private readonly TranscodePolicy $policy,
@@ -24,15 +28,9 @@ class TranscodeService
      */
     public function tempPath(string $token): string
     {
-        return self::TEMP_DIR.'/'.$token.'-'.Str::random(8).'.mp4';
-    }
+        Storage::disk('local')->makeDirectory(self::TEMP_DIR);
 
-    /**
-     * A fresh final path for a transcode result.
-     */
-    public function finalPath(): string
-    {
-        return 'videos/'.Str::random(10).'.mp4';
+        return self::TEMP_DIR.'/'.$token.'-'.Str::random(8).'.mp4';
     }
 
     /**
@@ -40,8 +38,6 @@ class TranscodeService
      */
     public function remux(string $inputRelativePath, string $outputRelativePath): void
     {
-        $this->ensureOutputDirectoryExists($outputRelativePath);
-
         $this->run($this->remuxCommand(
             Storage::disk('local')->path($inputRelativePath),
             Storage::disk('local')->path($outputRelativePath),
@@ -53,8 +49,6 @@ class TranscodeService
      */
     public function encode(string $inputRelativePath, string $outputRelativePath, VideoProbe $source, ?callable $onProgress = null): void
     {
-        $this->ensureOutputDirectoryExists($outputRelativePath);
-
         $this->run($this->encodeCommand(
             Storage::disk('local')->path($inputRelativePath),
             Storage::disk('local')->path($outputRelativePath),
@@ -91,7 +85,7 @@ class TranscodeService
 
     public function promote(string $relativePath): string
     {
-        $finalPath = $this->finalPath();
+        $finalPath = 'videos/'.Str::random(10).'.mp4';
         Storage::disk('local')->move($relativePath, $finalPath);
 
         return $finalPath;
@@ -99,18 +93,18 @@ class TranscodeService
 
     public function discard(?string $relativePath): void
     {
-        if ($relativePath !== null && Storage::disk('local')->exists($relativePath)) {
+        if ($relativePath !== null) {
             Storage::disk('local')->delete($relativePath);
         }
     }
 
-    public function sweepOrphanedTempFiles(int $olderThanHours = 24): void
+    public function sweepOrphanedTempFiles(): void
     {
         if (! Storage::disk('local')->exists(self::TEMP_DIR)) {
             return;
         }
 
-        $threshold = now()->subHours($olderThanHours)->getTimestamp();
+        $threshold = now()->subHours(self::ORPHAN_TTL_HOURS)->getTimestamp();
 
         foreach (Storage::disk('local')->files(self::TEMP_DIR) as $file) {
             if (Storage::disk('local')->lastModified($file) < $threshold) {
@@ -123,11 +117,11 @@ class TranscodeService
     /**
      * Refuse to start an encode that could fill the disk.
      */
-    public function ensureFreeSpace(int $sourceSizeBytes, float $safetyFactor = 1.3): void
+    public function ensureFreeSpace(int $sourceSizeBytes): void
     {
         $root = Storage::disk('local')->path('');
         $free = @disk_free_space($root);
-        $needed = (int) ($sourceSizeBytes * $safetyFactor);
+        $needed = (int) ($sourceSizeBytes * self::FREE_SPACE_SAFETY_FACTOR);
 
         if ($free === false || $free < $needed) {
             throw new TranscodeException(sprintf(
@@ -215,10 +209,5 @@ class TranscodeService
         } catch (\Throwable $e) {
             throw new TranscodeException('ffmpeg a échoué : '.$e->getMessage(), previous: $e);
         }
-    }
-
-    private function ensureOutputDirectoryExists(string $relativePath): void
-    {
-        Storage::disk('local')->makeDirectory(dirname($relativePath));
     }
 }

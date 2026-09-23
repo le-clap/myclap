@@ -18,7 +18,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -67,7 +66,6 @@ class TranscodeVideoJob implements ShouldBeUnique, ShouldQueue
         }
 
         $startedFrom = $video->file_identifier;
-        $wasProcessingUpload = $video->upload_status === UploadStatus::UPLOAD_PROCESSING;
 
         $attempt->status = TranscodeStatus::PROCESSING;
         $attempt->save();
@@ -90,7 +88,8 @@ class TranscodeVideoJob implements ShouldBeUnique, ShouldQueue
             $attempt->reason = $decision->reason;
 
             if ($decision->action === TranscodeAction::SKIP) {
-                $this->commit($video, $attempt, $startedFrom, $probe, TranscodeStatus::COMPLIANT, $wasProcessingUpload);
+                $this->commit($video, $startedFrom, $probe);
+                $this->finish($attempt, TranscodeStatus::COMPLIANT);
 
                 return;
             }
@@ -107,15 +106,13 @@ class TranscodeVideoJob implements ShouldBeUnique, ShouldQueue
 
             $resultProbe = $transcodeService->verify($producedPath, $probe);
 
-            $finalPath = $transcodeService->promote($producedPath);
-            $producedPath = $finalPath;
+            $producedPath = $transcodeService->promote($producedPath);
+            $this->commit($video, $startedFrom, $resultProbe, $producedPath);
 
-            $committed = $this->commit($video, $attempt, $startedFrom, $resultProbe, TranscodeStatus::TRANSCODED, $wasProcessingUpload, $finalPath);
+            // The video now points at the new file: never let the catch below delete it.
+            $producedPath = null;
 
-            if (! $committed) {
-                return;
-            }
-
+            $this->finish($attempt, TranscodeStatus::TRANSCODED);
             $transcodeService->discard($startedFrom);
             Cache::forget("transcode:{$video->token}:progress");
         } catch (\Throwable $e) {
@@ -130,15 +127,8 @@ class TranscodeVideoJob implements ShouldBeUnique, ShouldQueue
         }
     }
 
-    private function commit(
-        Video $video,
-        VideoTranscode $attempt,
-        string $startedFrom,
-        VideoProbe $probe,
-        TranscodeStatus $status,
-        bool $wasProcessingUpload,
-        ?string $newFileIdentifier = null,
-    ): bool {
+    private function commit(Video $video, string $startedFrom, VideoProbe $probe, ?string $newFileIdentifier = null): void
+    {
         $attributes = [
             'video_codec' => $probe->videoCodec,
             'audio_codec' => $probe->audioCodec,
@@ -154,28 +144,25 @@ class TranscodeVideoJob implements ShouldBeUnique, ShouldQueue
             $attributes['duration'] = (int) round($probe->duration);
         }
 
-        if ($wasProcessingUpload) {
+        if ($video->upload_status === UploadStatus::UPLOAD_PROCESSING) {
             $attributes['upload_status'] = UploadStatus::UPLOAD_END->value;
         }
 
-        $committed = DB::transaction(fn () => Video::where('id', $video->id)
+        $updated = Video::where('id', $video->id)
             ->where('file_identifier', $startedFrom)
-            ->update($attributes)) > 0;
+            ->update($attributes);
 
-        if ($committed) {
-            $attempt->status = $status;
-            $attempt->error = null;
-        } else {
-            $attempt->status = TranscodeStatus::FAILED;
-            $attempt->error = 'La vidéo a changé pendant le traitement, résultat abandonné.';
-
-            Log::info("Transcode: video {$video->token} changed during processing, discarding result");
+        if ($updated === 0) {
+            throw new TranscodeException('La vidéo a changé pendant le traitement, résultat abandonné.');
         }
+    }
 
+    private function finish(VideoTranscode $attempt, TranscodeStatus $status): void
+    {
+        $attempt->status = $status;
+        $attempt->error = null;
         $attempt->finished_on = now();
         $attempt->save();
-
-        return $committed;
     }
 
     private function reportProgress(string $videoToken, VideoProbe $probe, string $chunk): void

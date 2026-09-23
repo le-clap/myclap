@@ -21,20 +21,16 @@ class TranscodeController extends Controller
     {
         $validated = $request->validate([
             'q' => 'nullable|string|max:100',
-            'sort' => 'nullable|string|max:50',
-            'limit' => 'nullable|integer|min:12|max:120',
             'status' => 'nullable|string|in:processing,failed,ok,all',
         ]);
 
         $query = trim((string) ($validated['q'] ?? ''));
-        $sort = (string) ($validated['sort'] ?? '-started_on');
-        $limit = (int) ($validated['limit'] ?? 24);
-        $status = (string) ($validated['status'] ?? 'processing');
+        $status = (string) ($validated['status'] ?? 'all');
 
-        $sortDir = str_starts_with($sort, '-') ? 'desc' : 'asc';
-        $sortBy = ltrim($sort, '-') === 'status' ? 'status' : 'started_on';
-
-        $attemptsQuery = VideoTranscode::query()->with('video:token,name,thumbnail_identifier');
+        $attemptsQuery = VideoTranscode::query()
+            ->with('video:token,name,thumbnail_identifier')
+            ->orderByDesc('started_on')
+            ->orderByDesc('id');
 
         if ($query !== '') {
             $attemptsQuery->whereHas('video', fn ($q) => $q->search($query));
@@ -47,13 +43,8 @@ class TranscodeController extends Controller
             );
         }
 
-        $attemptsQuery->orderBy($sortBy, $sortDir);
-        if ($sortBy !== 'started_on') {
-            $attemptsQuery->orderByDesc('started_on');
-        }
-
         $attempts = $attemptsQuery
-            ->paginate($limit)
+            ->paginate(24)
             ->withQueryString();
 
         $countsByStatus = VideoTranscode::query()
@@ -71,6 +62,8 @@ class TranscodeController extends Controller
         }
 
         $attempts->getCollection()->transform(function (VideoTranscode $attempt) {
+            $attempt->video->setAppends(['thumbnail_urls']);
+
             if ($attempt->status === TranscodeStatus::PROCESSING) {
                 $attempt->progress = Cache::get("transcode:{$attempt->video_token}:progress");
             }
@@ -82,19 +75,13 @@ class TranscodeController extends Controller
             'attempts' => $attempts,
             'filters' => [
                 'q' => $query,
-                'sort' => $sort,
-                'limit' => $limit,
                 'status' => $status,
             ],
             'statusOptions' => [
+                ['value' => 'all', 'label' => 'Toutes', 'count' => $bucketCounts['all']],
                 ['value' => 'processing', 'label' => 'En cours', 'count' => $bucketCounts['processing']],
                 ['value' => 'failed', 'label' => 'Échecs', 'count' => $bucketCounts['failed']],
-                ['value' => 'ok', 'label' => 'Réussis', 'count' => $bucketCounts['ok']],
-                ['value' => 'all', 'label' => 'Toutes', 'count' => $bucketCounts['all']],
-            ],
-            'sortOptions' => [
-                ['value' => 'started_on', 'label' => 'Date'],
-                ['value' => 'status', 'label' => 'Statut'],
+                ['value' => 'ok', 'label' => 'Réussies', 'count' => $bucketCounts['ok']],
             ],
         ]);
     }

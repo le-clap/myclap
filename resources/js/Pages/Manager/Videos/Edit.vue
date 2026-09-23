@@ -57,6 +57,8 @@ function deleteVideo() {
     }
 }
 
+const displayStatus = computed(() => getDisplayStatus(props.video))
+
 const isAttemptInFlight = computed(() => [1, 2].includes(props.video.latest_transcode_attempt?.status))
 
 const recheckLabel = computed(() => {
@@ -136,11 +138,11 @@ function recheckTranscode() {
                     <code class="bg-dark-border px-2 py-1 rounded">{{ video.views?.toLocaleString() || 0 }}</code>
                     <span class="text-sm text-gray-400">Réactions:</span>
                     <code class="bg-dark-border px-2 py-1 rounded">{{ video.reactions?.toLocaleString() || 0 }}</code>
-                    <span :class="['ml-auto px-2 py-1 rounded', getDisplayStatus(video).class]">
-                        {{ getDisplayStatus(video).label }}
+                    <span :class="['ml-auto px-2 py-1 rounded', displayStatus.class]">
+                        {{ displayStatus.label }}
                     </span>
                 </div>
-                <p v-if="getDisplayStatus(video).needsAttention" class="text-sm text-red-400 mt-3">
+                <p v-if="displayStatus.needsAttention" class="text-sm text-red-400 mt-3">
                     {{ video.latest_transcode_attempt?.error || 'La vérification automatique de cette vidéo a échoué.' }}
                     <Link :href="`/manager/transcodage?q=${video.token}&status=all`" class="underline hover:text-red-300">Voir l'historique</Link>
                 </p>

@@ -41,9 +41,4 @@ class VideoPolicy
     {
         return $user->hasPermission('manager.video.manage');
     }
-
-    public function transcode(User $user, Video $video): bool
-    {
-        return $this->update($user, $video);
-    }
 }

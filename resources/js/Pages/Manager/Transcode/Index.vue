@@ -1,23 +1,20 @@
 <script setup>
-import {computed, onUnmounted, reactive, watch} from 'vue'
-import {Head, router} from '@inertiajs/vue3'
+import {computed, reactive, watch} from 'vue'
+import {Head, Link, router, usePoll} from '@inertiajs/vue3'
 import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
 import {formatDateTime, formatDuration} from '@/utils/date'
+import {TRANSCODE_STATUS_CLASS} from '@/utils/video'
 
 const props = defineProps({
     attempts: {
         type: Object,
-        default: () => ({data: [], current_page: 1, last_page: 1, total: 0, from: null, to: null})
+        default: () => ({data: [], links: [], last_page: 1, total: 0, from: null, to: null})
     },
     filters: {
         type: Object,
-        default: () => ({q: '', sort: '-started_on', limit: 24, status: 'processing'})
+        default: () => ({q: '', status: 'all'})
     },
     statusOptions: {
-        type: Array,
-        default: () => []
-    },
-    sortOptions: {
         type: Array,
         default: () => []
     }
@@ -25,114 +22,24 @@ const props = defineProps({
 
 const localFilters = reactive({
     q: props.filters.q || '',
-    sort: props.filters.sort || '-started_on',
-    limit: Number(props.filters.limit || 24),
-    status: props.filters.status || 'processing',
+    status: props.filters.status || 'all',
 })
 
 watch(() => props.filters, (nextFilters) => {
     localFilters.q = nextFilters.q || ''
-    localFilters.sort = nextFilters.sort || '-started_on'
-    localFilters.limit = Number(nextFilters.limit || 24)
-    localFilters.status = nextFilters.status || 'processing'
+    localFilters.status = nextFilters.status || 'all'
 })
 
 const attemptItems = computed(() => props.attempts?.data || [])
 
 const hasInFlightAttempts = computed(() => attemptItems.value.some(a => [1, 2].includes(a.status)))
 
-let pollTimer = null
+const poll = usePoll(2500, {only: ['attempts']}, {autoStart: false})
 
-function schedulePoll() {
-    if (pollTimer) {
-        return
-    }
+watch(hasInFlightAttempts, (inFlight) => inFlight ? poll.start() : poll.stop(), {immediate: true})
 
-    pollTimer = setInterval(() => {
-        if (!hasInFlightAttempts.value) {
-            clearInterval(pollTimer)
-            pollTimer = null
-            return
-        }
-
-        router.reload({only: ['attempts'], preserveScroll: true, preserveState: true})
-    }, 2500)
-}
-
-watch(hasInFlightAttempts, (inFlight) => {
-    if (inFlight) {
-        schedulePoll()
-    }
-}, {immediate: true})
-
-onUnmounted(() => {
-    if (pollTimer) {
-        clearInterval(pollTimer)
-    }
-})
-
-const sortField = computed({
-    get() {
-        return localFilters.sort.startsWith('-') ? localFilters.sort.slice(1) : localFilters.sort
-    },
-    set(value) {
-        localFilters.sort = `${isSortDesc.value ? '-' : ''}${value}`
-    }
-})
-
-const isSortDesc = computed({
-    get() {
-        return localFilters.sort.startsWith('-')
-    },
-    set(value) {
-        const field = sortField.value || 'started_on'
-        localFilters.sort = `${value ? '-' : ''}${field}`
-    }
-})
-
-const paginationItems = computed(() => {
-    const lastPage = props.attempts?.last_page || 1
-    const currentPage = props.attempts?.current_page || 1
-
-    if (lastPage <= 7) {
-        return Array.from({length: lastPage}, (_, i) => i + 1)
-    }
-
-    const items = [1]
-    const start = Math.max(2, currentPage - 1)
-    const end = Math.min(lastPage - 1, currentPage + 1)
-
-    if (start > 2) {
-        items.push('...')
-    }
-
-    for (let page = start; page <= end; page += 1) {
-        items.push(page)
-    }
-
-    if (end < lastPage - 1) {
-        items.push('...')
-    }
-
-    items.push(lastPage)
-
-    return items
-})
-
-function statusClass(status) {
-    switch (status) {
-        case 3: // COMPLIANT
-        case 4: // TRANSCODED
-            return 'bg-green-500/20 text-green-400'
-        case 1: // PENDING
-        case 2: // PROCESSING
-            return 'bg-blue-500/20 text-blue-400'
-        case 5: // FAILED
-            return 'bg-red-500/20 text-red-400'
-        default:
-            return 'bg-gray-500/20 text-gray-400'
-    }
-}
+// Laravel's paginator links, minus its own untranslated prev/next entries.
+const pageLinks = computed(() => (props.attempts?.links || []).slice(1, -1))
 
 function elapsedSeconds(attempt) {
     if (!attempt.finished_on) {
@@ -142,18 +49,8 @@ function elapsedSeconds(attempt) {
     return Math.round((new Date(attempt.finished_on) - new Date(attempt.started_on)) / 1000)
 }
 
-function buildQuery(overrides = {}) {
-    return {
-        q: localFilters.q || undefined,
-        sort: localFilters.sort,
-        limit: localFilters.limit,
-        status: localFilters.status,
-        ...overrides,
-    }
-}
-
 function applyFilters() {
-    router.get('/manager/transcodage', buildQuery({page: 1}), {
+    router.get('/manager/transcodage', {q: localFilters.q || undefined, status: localFilters.status}, {
         preserveState: true,
         preserveScroll: true,
         replace: true,
@@ -162,26 +59,6 @@ function applyFilters() {
 
 function setStatus(status) {
     localFilters.status = status
-    applyFilters()
-}
-
-function goToPage(page) {
-    const currentPage = props.attempts?.current_page || 1
-    const lastPage = props.attempts?.last_page || 1
-
-    if (!page || page < 1 || page > lastPage || page === currentPage) {
-        return
-    }
-
-    router.get('/manager/transcodage', buildQuery({page}), {
-        preserveState: true,
-        preserveScroll: true,
-        replace: true,
-    })
-}
-
-function toggleSortDirection() {
-    isSortDesc.value = !isSortDesc.value
     applyFilters()
 }
 
@@ -201,17 +78,17 @@ const emptyStateMessage = computed(() => {
             return 'Aucun historique à afficher.'
     }
 })
+
+const showEmptyCheck = computed(() => !localFilters.q && ['processing', 'failed'].includes(localFilters.status))
 </script>
 
 <template>
     <Head title="Transcodage"/>
     <ManagerLayout leftbar-active="transcode">
         <div class="w-full">
-            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-                <div>
-                    <h1 class="text-3xl font-bebas tracking-wide">Transcodage</h1>
-                    <p class="text-sm text-gray-400 mt-1">Historique des vérifications et ré-encodages. Pour relancer une vidéo précise, ouvrez sa fiche.</p>
-                </div>
+            <div class="mb-6">
+                <h1 class="text-3xl font-bebas tracking-wide">Transcodage</h1>
+                <p class="text-sm text-gray-400 mt-1">Historique des transcodages. Pour relancer une vidéo précise, ouvrez sa fiche.</p>
             </div>
 
             <!-- Status tabs: the primary way to triage this page, so counts stay
@@ -239,50 +116,14 @@ const emptyStateMessage = computed(() => {
                 </button>
             </div>
 
-            <form class="bg-dark-surface rounded-lg p-4 mb-4 grid grid-cols-1 md:grid-cols-12 gap-3" @submit.prevent="applyFilters">
-                <div class="md:col-span-5">
-                    <input
-                        v-model="localFilters.q"
-                        type="text"
-                        placeholder="Rechercher une vidéo..."
-                        class="w-full h-10 bg-[#1f1f1f] border border-[#3a3a3a] rounded-lg px-3 text-white focus:outline-none focus:border-myclap-red"
-                    />
-                </div>
-
-                <div class="md:col-span-3">
-                    <select
-                        v-model="sortField"
-                        class="w-full h-10 bg-[#1f1f1f] border border-[#3a3a3a] rounded-lg px-3 text-white focus:outline-none focus:border-myclap-red"
-                        @change="applyFilters"
-                    >
-                        <option v-for="option in sortOptions" :key="option.value" :value="option.value">
-                            Trier par: {{ option.label }}
-                        </option>
-                    </select>
-                </div>
-
-                <div class="md:col-span-2">
-                    <button
-                        type="button"
-                        class="w-full h-10 flex items-center justify-center bg-[#1f1f1f] border border-[#3a3a3a] rounded-lg px-3 hover:bg-dark-border transition-colors"
-                        @click="toggleSortDirection"
-                    >
-                        {{ isSortDesc ? 'Desc' : 'Asc' }}
-                    </button>
-                </div>
-
-                <div class="md:col-span-2">
-                    <select
-                        v-model.number="localFilters.limit"
-                        class="w-full h-10 bg-[#1f1f1f] border border-[#3a3a3a] rounded-lg px-3 text-white focus:outline-none focus:border-myclap-red"
-                        @change="applyFilters"
-                    >
-                        <option :value="12">12 / page</option>
-                        <option :value="24">24 / page</option>
-                        <option :value="48">48 / page</option>
-                        <option :value="96">96 / page</option>
-                    </select>
-                </div>
+            <form class="bg-dark-surface rounded-lg p-4 mb-4" @submit.prevent="applyFilters">
+                <input
+                    v-model="localFilters.q"
+                    type="search"
+                    placeholder="Rechercher une vidéo..."
+                    aria-label="Rechercher une vidéo"
+                    class="w-full h-10 bg-[#1f1f1f] border border-[#3a3a3a] rounded-lg px-3 text-white focus:outline-none focus:border-myclap-red"
+                />
             </form>
 
             <div class="text-sm text-gray-400 mb-4">
@@ -292,15 +133,15 @@ const emptyStateMessage = computed(() => {
 
             <!-- Attempts list -->
             <div v-if="attemptItems.length > 0" class="bg-dark-surface rounded-lg divide-y divide-dark-border">
-                <div
+                <Link
                     v-for="attempt in attemptItems"
                     :key="attempt.id"
-                    class="flex items-center gap-4 p-4 hover:bg-[#222] transition-colors cursor-pointer"
-                    @click="router.visit(`/manager/videos/v/${attempt.video.token}`)"
+                    :href="`/manager/videos/v/${attempt.video.token}`"
+                    class="flex items-center gap-4 p-4 hover:bg-[#222] transition-colors"
                 >
                     <img
-                        :src="attempt.video.thumbnail_urls?.['120'] || attempt.video.thumbnail_url"
-                        :alt="attempt.video.name"
+                        :src="attempt.video.thumbnail_urls['120']"
+                        alt=""
                         class="w-24 h-14 object-cover rounded shrink-0"
                     />
                     <div class="flex-1 min-w-0">
@@ -325,63 +166,69 @@ const emptyStateMessage = computed(() => {
                     </div>
                     <div class="shrink-0">
                         <div v-if="attempt.status === 2 && attempt.progress != null" class="flex items-center gap-2 w-32">
-                            <div class="flex-1 h-1.5 bg-dark-border rounded-full overflow-hidden">
+                            <div
+                                role="progressbar"
+                                :aria-valuenow="attempt.progress"
+                                aria-valuemin="0"
+                                aria-valuemax="100"
+                                aria-label="Progression de l'encodage"
+                                class="flex-1 h-1.5 bg-dark-border rounded-full overflow-hidden"
+                            >
                                 <div class="h-full bg-blue-500 transition-all" :style="{width: `${attempt.progress}%`}"></div>
                             </div>
                             <span class="text-xs text-blue-400 w-8 text-right">{{ attempt.progress }}%</span>
                         </div>
-                        <span v-else :class="['px-2 py-1 rounded text-xs whitespace-nowrap', statusClass(attempt.status)]">
+                        <span v-else :class="['px-2 py-1 rounded text-xs whitespace-nowrap', TRANSCODE_STATUS_CLASS[attempt.status]]">
                             {{ attempt.status_label }}
                         </span>
                     </div>
-                </div>
+                </Link>
             </div>
 
             <!-- Empty state -->
             <div v-else class="text-center py-12 text-gray-400 bg-dark-surface rounded-lg">
-                <svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg v-if="showEmptyCheck" class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
                 <p>{{ emptyStateMessage }}</p>
             </div>
 
-            <div v-if="attempts.last_page > 1" class="mt-6 flex flex-wrap items-center justify-center gap-2">
-                <button
-                    type="button"
-                    class="px-3 py-2 bg-dark-border hover:bg-[#3a3a3a] rounded disabled:opacity-40 disabled:cursor-not-allowed"
-                    :disabled="attempts.current_page <= 1"
-                    @click="goToPage(attempts.current_page - 1)"
+            <nav v-if="attempts.last_page > 1" aria-label="Pagination" class="mt-6 flex flex-wrap items-center justify-center gap-2">
+                <component
+                    :is="attempts.prev_page_url ? Link : 'span'"
+                    :href="attempts.prev_page_url"
+                    preserve-scroll
+                    :class="['px-3 py-2 bg-dark-border rounded', attempts.prev_page_url ? 'hover:bg-[#3a3a3a]' : 'opacity-40']"
                 >
                     Précédent
-                </button>
+                </component>
 
-                <template v-for="(item, index) in paginationItems" :key="`page-${item}-${index}`">
-                    <span v-if="item === '...'" class="px-2 text-gray-400">...</span>
-                    <button
+                <template v-for="(link, index) in pageLinks" :key="index">
+                    <span v-if="!link.url" class="px-2 text-gray-400">{{ link.label }}</span>
+                    <Link
                         v-else
-                        type="button"
+                        :href="link.url"
+                        preserve-scroll
+                        :aria-current="link.active ? 'page' : undefined"
                         :class="[
                             'px-3 py-2 rounded transition-colors',
-                            item === attempts.current_page
-                                ? 'bg-myclap-red text-white'
-                                : 'bg-dark-border hover:bg-[#3a3a3a]'
+                            link.active ? 'bg-myclap-red text-white' : 'bg-dark-border hover:bg-[#3a3a3a]'
                         ]"
-                        @click="goToPage(item)"
                     >
-                        {{ item }}
-                    </button>
+                        {{ link.label }}
+                    </Link>
                 </template>
 
-                <button
-                    type="button"
-                    class="px-3 py-2 bg-dark-border hover:bg-[#3a3a3a] rounded disabled:opacity-40 disabled:cursor-not-allowed"
-                    :disabled="attempts.current_page >= attempts.last_page"
-                    @click="goToPage(attempts.current_page + 1)"
+                <component
+                    :is="attempts.next_page_url ? Link : 'span'"
+                    :href="attempts.next_page_url"
+                    preserve-scroll
+                    :class="['px-3 py-2 bg-dark-border rounded', attempts.next_page_url ? 'hover:bg-[#3a3a3a]' : 'opacity-40']"
                 >
                     Suivant
-                </button>
-            </div>
+                </component>
+            </nav>
         </div>
     </ManagerLayout>
 </template>

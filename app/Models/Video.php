@@ -163,29 +163,6 @@ class Video extends Model
         );
     }
 
-    public function scopeSortBy(Builder $query, string $sort, array $allowedFields, array $nullableLast = []): Builder
-    {
-        $direction = str_starts_with($sort, '-') ? 'desc' : 'asc';
-        $field = ltrim($sort, '-');
-
-        if (! in_array($field, $allowedFields, true)) {
-            $field = 'uploaded_on';
-            $direction = 'desc';
-        }
-
-        if (in_array($field, $nullableLast, true)) {
-            $query->orderByRaw("CASE WHEN {$field} IS NULL THEN 1 ELSE 0 END ASC");
-        }
-
-        $query->orderBy($field, $direction);
-
-        if ($field !== 'uploaded_on') {
-            $query->orderByDesc('uploaded_on');
-        }
-
-        return $query;
-    }
-
     // Accessors
     protected function author(): Attribute
     {
@@ -234,12 +211,12 @@ class Video extends Model
 
     protected function accessLabel(): Attribute
     {
-        return Attribute::make(get: fn () => $this->access?->label());
+        return Attribute::make(get: fn () => $this->access->label());
     }
 
     protected function uploadStatusLabel(): Attribute
     {
-        return Attribute::make(get: fn () => $this->upload_status?->label());
+        return Attribute::make(get: fn () => $this->upload_status->label());
     }
 
     public function syncCategories(array $categorySlugs): void
