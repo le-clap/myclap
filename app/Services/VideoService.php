@@ -140,12 +140,6 @@ class VideoService
         }
     }
 
-    /**
-     * ffprobe never reports whether an MP4/MOV's `moov` atom (its index)
-     * comes before or after `mdat` (the media data) — walk the top-level
-     * ISO-BMFF boxes ourselves. A non-MP4 container (e.g. Matroska/WebM)
-     * fails this walk almost immediately, which correctly reports false.
-     */
     private function detectFaststart(string $fullPath): bool
     {
         $handle = @fopen($fullPath, 'rb');
@@ -188,8 +182,7 @@ class VideoService
                     $size = unpack('J', $extended)[1]; // J = uint64, big-endian
                     $skip = $size - 16;
                 } elseif ($size === 0) {
-                    // Box extends to EOF (last box in the file) — moov isn't here.
-                    return false;
+                    return false; // Box extends to EOF (last box in the file).
                 } else {
                     $skip = $size - 8;
                 }

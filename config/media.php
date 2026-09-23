@@ -47,15 +47,11 @@ return [
     |
     | X-Accel-Redirect is an nginx-only directive (see nginx.conf's
     | `location ^~ /internal-storage/`): nginx intercepts it and streams the
-    | real file itself. Behind any other server — notably `php artisan serve`
-    | in local dev — nobody interprets that header, so the browser gets a 200
-    | response advertising a playable video/image with an EMPTY body. Keep
-    | this true only when nginx is actually in front (production); everywhere
-    | else the controller streams the file directly instead.
+    | real file itself.
     |
     */
 
-    'serve_via_x_accel_redirect' => (bool) env('MEDIA_X_ACCEL_REDIRECT', false),
+    'serve_via_x_accel_redirect' => (bool) env('MEDIA_X_ACCEL_REDIRECT', true),
 
     /*
     |--------------------------------------------------------------------------
@@ -94,15 +90,11 @@ return [
     */
 
     'compliance' => [
-        // ffprobe's mov/mp4 demuxer always reports this exact joined
-        // format_name — never a bare "mp4"/"mov" — for any MP4/MOV file,
-        // regardless of what tool produced it. Anything else forces at
-        // least a remux.
         'containers' => ['mov,mp4,m4a,3gp,3g2,mj2'],
 
         'video_codec' => 'h264',
         'profiles' => ['Constrained Baseline', 'Baseline', 'Main', 'High'],
-        'max_level' => 42, // 4.2 — covers 1080p60
+        'max_level' => 42, // 4.2 (covers 1080p60)
         'pix_fmt' => 'yuv420p',
 
         'max_width' => 1920,

@@ -4,11 +4,6 @@ namespace App\Services\Media;
 
 use Illuminate\Support\Str;
 
-/**
- * Pure decision function: given a probe, classify the video as SKIP / REMUX
- * / ENCODE. No I/O — every threshold comes from config('media.compliance'),
- * which keeps this testable with hand-built VideoProbe fixtures.
- */
 class TranscodePolicy
 {
     public function decide(VideoProbe $probe): TranscodeDecision
@@ -97,8 +92,7 @@ class TranscodePolicy
 
     private function bitrateCompliant(VideoProbe $probe): bool
     {
-        // Bitrate could not be determined at all — don't force a re-encode
-        // over missing data.
+        // Bitrate could not be determined at all ; don't force a re-encode over missing data.
         if ($probe->videoBitrate === null || $probe->height === null) {
             return true;
         }
@@ -106,10 +100,6 @@ class TranscodePolicy
         return $probe->videoBitrate <= $this->bitrateCeilingForHeight($probe->height);
     }
 
-    /**
-     * Public so TranscodeService can target the same ceiling as -maxrate
-     * when building the encode command.
-     */
     public function bitrateCeilingForHeight(int $height): int
     {
         $ceilingsByHeight = config('media.compliance.max_video_bitrate_by_height');

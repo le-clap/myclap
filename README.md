@@ -27,8 +27,7 @@ Ce site permet à travers différentes sections de :
 
 ## Installation
 
-Prérequis serveur : PHP 8.4, PostgreSQL, et **`ffmpeg`/`ffprobe`** (utilisés pour valider et normaliser les vidéos
-envoyées — voir [Service de transcodage](#service-de-transcodage)).
+Prérequis : PHP 8.4, PostgreSQL, `ffmpeg` et `ffprobe`.
 
 Après avoir récupéré le code depuis le repo GitHub :
 
@@ -61,71 +60,49 @@ php artisan storage:link
 
 ## Service de transcodage
 
-Chaque vidéo envoyée est probée (`ffprobe`, via `VideoService::probe()`) puis classée par
-`App\Services\Media\TranscodePolicy` :
+Chaque vidéo envoyée est analysée avec `ffprobe`, puis :
 
-- **Conforme** : le fichier respecte déjà les critères ci-dessous — rien n'est modifié.
-- **Remux** : seuls le conteneur ou le placement de l'index (`moov`) sont à corriger → recopie sans perte des flux
-  (`-c copy`), quelques secondes.
-- **Ré-encodage** : codec, profil, résolution, format de pixel ou débit non conformes → ré-encodage complet H.264/AAC
-  (`libx264`), peut prendre plusieurs minutes.
+- **Conforme** : le fichier est gardé tel quel
+- **Remux** : seul le conteneur est corrigé, sans ré-encoder
+- **Ré-encodage** : le fichier est ré-encodé en H.264/AAC
 
-Les critères de conformité (codec H.264, profils autorisés, niveau max, résolution max 1920×1080, audio AAC stéréo,
-plafonds de débit par résolution) et les paramètres d'encodage (preset, CRF, débit audio) sont dans `config/media.php`
-(clés `compliance` et `encode`).
+Les critères et les paramètres d'encodage sont dans `config/media.php`.
 
-**Publication.** Tant que la vérification d'un envoi n'a pas abouti, la vidéo n'est **pas publiée** (elle n'apparaît
-nulle part et son lien direct répond 404) — pour éviter de publier un fichier illisible par le navigateur. Le fichier
-original n'est jamais modifié en place : le job (`App\Jobs\TranscodeVideoJob`) écrit toujours vers un nouveau fichier,
-ne bascule le pointeur en base qu'une fois le résultat vérifié, puis supprime l'ancien — une vidéo déjà publiée reste
-donc visible et lisible pendant toute l'opération, y compris lors d'un ré-encodage manuel.
+Une vidéo envoyée n'est publiée qu'une fois ce traitement terminé. Le fichier d'origine n'est remplacé qu'après
+vérification du résultat, une vidéo déjà en ligne reste donc lisible pendant un ré-encodage. Chaque tentative est
+enregistrée dans la table `video_transcode` et visible dans l'onglet Transcodage du manager. Une vérification peut être
+relancée depuis la fiche de la vidéo.
 
-**Historique (`video_transcode`).** Chaque vérification/ré-encodage écrit une ligne dans cette table — action prise
-(skip/remux/encode), statut, raison, erreur, horodatage — plutôt que d'écraser un statut unique sur `video` :
-`transcode_status` n'est lu par aucune page publique (contrairement à `upload_status`, vérifié à chaque vue), donc rien
-ne justifiait de le dénormaliser sur `video` au prix de perdre l'historique. `Video::latestTranscodeAttempt()` (une
-relation `hasOne(...)->latestOfMany()`) donne l'état courant sans requête par ligne sur les pages liste. Les colonnes
-qui restent sur `video` (`video_codec`, `width`, `height`, `bitrate`, `faststart`) décrivent le fichier actuel, pas le
-déroulement d'une tentative — au même titre que `duration`/`file_size`, et nécessaires à `TranscodePolicy` pour sa
-*prochaine* décision.
-
-**Interface manager.** Relancer une vérification se fait depuis la fiche de la vidéo (bouton Vérifier/Revérifier/
-Réessayer selon son état). L'onglet **Transcodage** (`/manager/transcodage`) est un historique en lecture seule de
-toutes les tentatives, plus récentes en premier, filtrable par statut et par vidéo — le détail action/erreur/raison vit
-uniquement là ; les pages Vidéos restent centrées sur le contenu (nom, accès, vues, poids, bitrate).
-
-### Mise en route
-
-Ce traitement tourne de façon asynchrone via la queue Laravel (tables `jobs`/`failed_jobs`, créées par les migrations
-du projet — rien à générer soi-même) et nécessite un worker dédié qui tourne en continu :
+Le traitement passe par la queue Laravel et nécessite un worker :
 
 ```bash
 php artisan queue:work --queue=transcode --tries=1 --timeout=0
 ```
 
-En local, `composer dev` démarre déjà ce worker (`queue:listen --queue=default,transcode`). En production, utiliser le
-service systemd fourni dans `deploy/myclap-transcoder.service` (à copier dans `/etc/systemd/system/`, puis
-`systemctl enable --now myclap-transcoder`).
+En local, `composer dev` lance déjà ce worker. En production, installer le service systemd fourni :
 
-**Après chaque déploiement, ou toute modification du code touchant au job/aux services de transcodage, relancer
-`php artisan queue:restart`.** Un worker déjà démarré garde l'ancien code chargé en mémoire tant qu'il n'a pas
-redémarré — sans ce redémarrage, les modifications sont invisibles pour lui alors même que le reste de l'application les
-utilise déjà.
+```bash
+sudo cp deploy/myclap-transcoder.service /etc/systemd/system/
+sudo systemctl enable --now myclap-transcoder
+```
 
-### Variables d'environnement
+Après chaque déploiement, redémarrer le worker pour qu'il charge le nouveau code :
 
-| Variable                       | Rôle                                                                                                                                                                                                                                                                                                                        |
-|--------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `TRANSCODE_ENABLED`            | Coupe-circuit : si `false` (ou si le worker n'est pas démarré), les vidéos envoyées sont publiées immédiatement sans vérification, comme avant l'existence de cette fonctionnalité. À utiliser uniquement en cas de panne du worker, pour ne pas bloquer les envois.                                                        |
-| `FFMPEG_PATH` / `FFPROBE_PATH` | Chemins des binaires (les deux doivent être installés sur l'hôte).                                                                                                                                                                                                                                                          |
-| `MEDIA_X_ACCEL_REDIRECT`       | **`true` uniquement derrière nginx** (voir `nginx.conf` et [Configuration Nginx](#configuration-nginx)). `X-Accel-Redirect` est une directive nginx ; sans nginx devant (ex. `php artisan serve` en local), la laisser à `false` (défaut) — sinon vidéos et miniatures renvoient une réponse `200` vide au lieu du fichier. |
+```bash
+php artisan queue:restart
+```
 
-### Vidéos déjà en ligne (backlog)
+Variables d'environnement :
 
-Les vidéos existantes ne sont jamais transcodées automatiquement en masse. `php artisan videos:sync-metadata` (re-)probe
-chaque vidéo et remplit les colonnes techniques (`video_codec`, `width`, `height`, `bitrate`, `faststart`) sans jamais
-ré-encoder ni créer de ligne d'historique — une vidéo jamais vérifiée n'a simplement aucune ligne dans
-`video_transcode` ; à traiter vidéo par vidéo via le bouton Vérifier de sa fiche.
+- `TRANSCODE_ENABLED` : à passer à `false` si le worker est désactivé, les vidéos sont alors publiées sans traitement
+- `FFMPEG_PATH`, `FFPROBE_PATH` : chemins des binaires
+- `MEDIA_X_ACCEL_REDIRECT` : `true` uniquement derrière Nginx, sinon les vidéos et miniatures ne sont pas servies correctement
+
+Les vidéos déjà en ligne ne sont pas traitées automatiquement. Pour remplir leurs métadonnées techniques :
+
+```bash
+php artisan videos:sync-metadata
+```
 
 ## Configuration Nginx
 
