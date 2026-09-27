@@ -26,6 +26,9 @@ class MediaController extends Controller
             abort(404);
         }
 
+        // Fail directly if the file has changed
+        abort_if($request->has('v') && $request->query('v') !== Video::version($video->file_identifier), 404);
+
         $filename = Str::slug($video->name).'.mp4';
 
         return $this->serveFile($video->file_identifier, [

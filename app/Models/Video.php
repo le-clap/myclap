@@ -206,7 +206,12 @@ class Video extends Model
             return '';
         }
 
-        return '?v='.substr(sha1($identifier), 0, 8);
+        return '?v='.self::version($identifier);
+    }
+
+    public static function version(string $identifier): string
+    {
+        return substr(sha1($identifier), 0, 8);
     }
 
     protected function accessLabel(): Attribute

@@ -99,9 +99,8 @@ async function initTracking() {
 }
 
 let reloadedAfterError = false
+let pausedByViewer = true
 
-// A transcode can replace the file behind the URL mid-playback, so the byte
-// ranges the browser asks for no longer match.
 // Reload the current file once and resume where the viewer was.
 function reloadAfterFileSwap() {
     if (reloadedAfterError) return
@@ -109,8 +108,9 @@ function reloadAfterFileSwap() {
 
     const media = playerElement.value
     const time = media.currentTime
-    const wasPlaying = !media.paused
+    const wasPlaying = !pausedByViewer
     const url = new URL(props.video.video_url, window.location.origin)
+    url.searchParams.delete('v')
     url.searchParams.set('r', Date.now())
 
     media.addEventListener('loadedmetadata', () => {
@@ -139,7 +139,12 @@ onMounted(() => {
     })
 
     player.on('play', () => {
+        pausedByViewer = false
         initTracking()
+    })
+
+    player.on('pause', () => {
+        pausedByViewer = true
     })
 
     player.on('ended', () => {
@@ -166,7 +171,7 @@ onUnmounted(() => {
             controls
             class="w-full rounded-lg"
         >
-            <source :src="video.video_url" type="video/mp4">
+            <source :src="video.video_url" type="video/mp4" @error="reloadAfterFileSwap">
             Votre navigateur ne supporte pas la lecture de vidéos.
         </video>
     </div>
