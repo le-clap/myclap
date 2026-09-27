@@ -239,11 +239,6 @@ class VideoController extends Controller
                 ->with('info', 'La vidéo a déjà été uploadée.');
         }
 
-        if ($video->upload_status === UploadStatus::UPLOAD_PROCESSING) {
-            return redirect()->route('manager.videos.edit', $video)
-                ->with('info', 'La vidéo est en cours de traitement.');
-        }
-
         $uploadProgress = $video->upload_status === UploadStatus::UPLOAD_INIT
             ? $this->uploadService->getUploadProgress($video)
             : null;

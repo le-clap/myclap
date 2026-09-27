@@ -7,7 +7,6 @@ enum UploadStatus: int
     case UPLOAD_END = 0;
     case UPLOAD_INIT = 1;
     case UPLOAD_NULL = 2;
-    case UPLOAD_PROCESSING = 3;
 
     public function label(): string
     {
@@ -15,7 +14,6 @@ enum UploadStatus: int
             self::UPLOAD_END => 'Publiée',
             self::UPLOAD_INIT => 'Upload en cours',
             self::UPLOAD_NULL => 'Non uploadée',
-            self::UPLOAD_PROCESSING => 'Traitement en cours',
         };
     }
 }

@@ -26,7 +26,7 @@ const RED = 'bg-red-500/20 text-red-400'
 
 export const TRANSCODE_STATUS_CLASS = {1: BLUE, 2: BLUE, 3: GREEN, 4: GREEN, 5: RED}
 
-const UPLOAD_STATUS_CLASS = {0: GREEN, 1: YELLOW, 2: GRAY, 3: BLUE}
+const UPLOAD_STATUS_CLASS = {0: GREEN, 1: YELLOW, 2: GRAY}
 
 export function getDisplayStatus(video) {
     const attemptStatus = video.latest_transcode_attempt?.status

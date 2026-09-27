@@ -65,21 +65,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Transcode Service
-    |--------------------------------------------------------------------------
-    |
-    | Whether newly uploaded videos are held back (upload_status stays
-    | UPLOAD_PROCESSING) until the async transcode job has probed them and
-    | reached a terminal state (COMPLIANT/TRANSCODED). Disable only as an
-    | operational kill switch (e.g. no worker running) — this restores the
-    | previous behaviour of publishing immediately on finalize.
-    |
-    */
-
-    'transcode_enabled' => (bool) env('TRANSCODE_ENABLED', true),
-
-    /*
-    |--------------------------------------------------------------------------
     | Web-compliance thresholds
     |--------------------------------------------------------------------------
     |

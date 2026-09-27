@@ -61,7 +61,7 @@ class TranscodeVideoJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        if (! in_array($video->upload_status, [UploadStatus::UPLOAD_END, UploadStatus::UPLOAD_PROCESSING], true)) {
+        if ($video->upload_status !== UploadStatus::UPLOAD_END) {
             return;
         }
 
@@ -142,10 +142,6 @@ class TranscodeVideoJob implements ShouldBeUnique, ShouldQueue
             $attributes['file_identifier'] = $newFileIdentifier;
             $attributes['file_size'] = $probe->size;
             $attributes['duration'] = (int) round($probe->duration);
-        }
-
-        if ($video->upload_status === UploadStatus::UPLOAD_PROCESSING) {
-            $attributes['upload_status'] = UploadStatus::UPLOAD_END->value;
         }
 
         $updated = Video::where('id', $video->id)

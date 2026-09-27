@@ -21,7 +21,7 @@ class VideoUploadService
 
     public function initUpload(Video $video, string $fileName, int $fileSize, string $username): array
     {
-        if (in_array($video->upload_status, [UploadStatus::UPLOAD_END, UploadStatus::UPLOAD_PROCESSING], true)) {
+        if ($video->upload_status === UploadStatus::UPLOAD_END) {
             throw new UploadException('Vidéo déjà uploadée');
         }
 
@@ -135,12 +135,10 @@ class VideoUploadService
         Storage::disk('local')->makeDirectory('videos');
         Storage::disk('local')->move($tempPath, $finalIdentifier);
 
-        $transcodeEnabled = (bool) config('media.transcode_enabled');
-
         try {
-            DB::transaction(function () use ($video, $upload, $finalIdentifier, $probe, $transcodeEnabled) {
+            DB::transaction(function () use ($video, $upload, $finalIdentifier, $probe) {
                 $video->file_identifier = $finalIdentifier;
-                $video->upload_status = $transcodeEnabled ? UploadStatus::UPLOAD_PROCESSING : UploadStatus::UPLOAD_END;
+                $video->upload_status = UploadStatus::UPLOAD_END;
                 $video->uploaded_on = now();
                 $video->duration = (int) round($probe->duration);
                 $video->file_size = $upload->file_size;
@@ -162,29 +160,24 @@ class VideoUploadService
             throw $e;
         }
 
-        if ($transcodeEnabled) {
-            $attempt = $video->transcodeAttempts()->create([
-                'status' => TranscodeStatus::PENDING,
-                'started_on' => now(),
+        $attempt = $video->transcodeAttempts()->create([
+            'status' => TranscodeStatus::PENDING,
+            'started_on' => now(),
+        ]);
+
+        try {
+            TranscodeVideoJob::dispatch($video, $attempt);
+        } catch (\Throwable $e) {
+            Log::error('Failed to dispatch TranscodeVideoJob after upload finalize', [
+                'video' => $video->token,
+                'exception' => $e,
             ]);
 
-            try {
-                TranscodeVideoJob::dispatch($video, $attempt);
-            } catch (\Throwable $e) {
-                Log::error('Failed to dispatch TranscodeVideoJob after upload finalize', [
-                    'video' => $video->token,
-                    'exception' => $e,
-                ]);
-
-                $video->upload_status = UploadStatus::UPLOAD_END;
-                $video->save();
-
-                $attempt->update([
-                    'status' => TranscodeStatus::FAILED,
-                    'error' => 'La mise en file pour vérification a échoué.',
-                    'finished_on' => now(),
-                ]);
-            }
+            $attempt->update([
+                'status' => TranscodeStatus::FAILED,
+                'error' => 'La mise en file pour vérification a échoué.',
+                'finished_on' => now(),
+            ]);
         }
     }
 

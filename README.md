@@ -68,8 +68,8 @@ Chaque vidéo envoyée est analysée avec `ffprobe`, puis :
 
 Les critères et les paramètres d'encodage sont dans `config/media.php`.
 
-Une vidéo envoyée n'est publiée qu'une fois ce traitement terminé. Le fichier d'origine n'est remplacé qu'après
-vérification du résultat, une vidéo déjà en ligne reste donc lisible pendant un ré-encodage. Chaque tentative est
+Une vidéo envoyée est publiée tout de suite et reste lisible pendant son traitement. Le fichier d'origine n'est remplacé
+qu'après vérification du résultat. Chaque tentative est
 enregistrée dans la table `video_transcode` et visible dans l'onglet Transcodage du manager. Une vérification peut être
 relancée depuis la fiche de la vidéo.
 
@@ -94,7 +94,6 @@ php artisan queue:restart
 
 Variables d'environnement :
 
-- `TRANSCODE_ENABLED` : à passer à `false` si le worker est désactivé, les vidéos sont alors publiées sans traitement
 - `FFMPEG_PATH`, `FFPROBE_PATH` : chemins des binaires
 - `MEDIA_X_ACCEL_REDIRECT` : `true` uniquement derrière Nginx, sinon les vidéos et miniatures ne sont pas servies correctement
 

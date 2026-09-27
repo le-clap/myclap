@@ -92,7 +92,7 @@ function recheckTranscode() {
                 <h1 class="text-2xl font-bold">Modifier la vidéo</h1>
                 <div class="flex gap-2">
                     <Link
-                        v-if="video.upload_status !== 0 && video.upload_status !== 3"
+                        v-if="video.upload_status !== 0"
                         :href="`/manager/videos/v/${video.token}/envoyer`"
                         class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                     >

@@ -98,7 +98,31 @@ async function initTracking() {
     }
 }
 
+let reloadedAfterError = false
+
+// A transcode can replace the file behind the URL mid-playback, so the byte
+// ranges the browser asks for no longer match.
+// Reload the current file once and resume where the viewer was.
+function reloadAfterFileSwap() {
+    if (reloadedAfterError) return
+    reloadedAfterError = true
+
+    const media = playerElement.value
+    const time = media.currentTime
+    const wasPlaying = !media.paused
+    const url = new URL(props.video.video_url, window.location.origin)
+    url.searchParams.set('r', Date.now())
+
+    media.addEventListener('loadedmetadata', () => {
+        media.currentTime = time
+        if (wasPlaying) media.play().catch(() => {})
+    }, {once: true})
+    media.src = url.toString()
+}
+
 onMounted(() => {
+    playerElement.value.addEventListener('error', reloadAfterFileSwap)
+
     player = new Plyr(playerElement.value, {
         controls: [
             'play-large',
