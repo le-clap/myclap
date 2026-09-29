@@ -3,7 +3,7 @@ import {computed, reactive, watch} from 'vue'
 import {Head, Link, router} from '@inertiajs/vue3'
 import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
 import {formatDuration} from '@/utils/date'
-import {formatBitrate, formatFileSize} from '@/utils/video'
+import {formatBitrate, formatFileSize, getDisplayStatus} from '@/utils/video'
 
 const props = defineProps({
     videos: {
@@ -82,19 +82,6 @@ const paginationItems = computed(() => {
     return items
 })
 
-function getStatusClass(status) {
-    switch (status) {
-        case 0:
-            return 'bg-green-500/20 text-green-400'
-        case 1:
-            return 'bg-yellow-500/20 text-yellow-400'
-        case 2:
-            return 'bg-gray-500/20 text-gray-400'
-        default:
-            return 'bg-gray-500/20 text-gray-400'
-    }
-}
-
 function buildQuery(overrides = {}) {
     return {
         q: localFilters.q || undefined,
@@ -142,7 +129,7 @@ function toggleSortDirection() {
                 <div class="flex items-center gap-3">
                     <Link
                         href="/manager/videos/ajouter"
-                        class="flex items-center gap-2 px-4 py-2 bg-myclap-red hover:bg-[#cc0402] rounded-lg transition-colors"
+                        class="h-10 flex items-center gap-2 px-4 bg-myclap-red hover:bg-[#cc0402] rounded-lg transition-colors"
                     >
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -158,14 +145,14 @@ function toggleSortDirection() {
                         v-model="localFilters.q"
                         type="text"
                         placeholder="Rechercher..."
-                        class="w-full bg-[#1f1f1f] border border-[#3a3a3a] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-myclap-red"
+                        class="w-full h-10 bg-[#1f1f1f] border border-[#3a3a3a] rounded-lg px-3 text-white focus:outline-none focus:border-myclap-red"
                     />
                 </div>
 
                 <div class="md:col-span-3">
                     <select
                         v-model="sortField"
-                        class="w-full bg-[#1f1f1f] border border-[#3a3a3a] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-myclap-red"
+                        class="w-full h-10 bg-[#1f1f1f] border border-[#3a3a3a] rounded-lg px-3 text-white focus:outline-none focus:border-myclap-red"
                         @change="applyFilters"
                     >
                         <option v-for="option in sortOptions" :key="option.value" :value="option.value">
@@ -177,7 +164,7 @@ function toggleSortDirection() {
                 <div class="md:col-span-2 flex gap-2">
                     <button
                         type="button"
-                        class="w-full bg-[#1f1f1f] border border-[#3a3a3a] rounded-lg px-3 py-2 hover:bg-dark-border transition-colors"
+                        class="w-full h-10 flex items-center justify-center bg-[#1f1f1f] border border-[#3a3a3a] rounded-lg px-3 hover:bg-dark-border transition-colors"
                         @click="toggleSortDirection"
                     >
                         {{ isSortDesc ? 'Desc' : 'Asc' }}
@@ -187,7 +174,7 @@ function toggleSortDirection() {
                 <div class="md:col-span-2 flex gap-2">
                     <select
                         v-model.number="localFilters.limit"
-                        class="w-full bg-[#1f1f1f] border border-[#3a3a3a] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-myclap-red"
+                        class="w-full h-10 bg-[#1f1f1f] border border-[#3a3a3a] rounded-lg px-3 text-white focus:outline-none focus:border-myclap-red"
                         @change="applyFilters"
                     >
                         <option :value="12">12 / page</option>
@@ -236,8 +223,8 @@ function toggleSortDirection() {
                             {{ video.uploaded_by }}
                         </div>
                     </div>
-                    <span :class="['px-2 py-1 rounded text-xs', getStatusClass(video.upload_status)]">
-                        {{ video.upload_status_label }}
+                    <span :class="['px-2 py-1 rounded text-xs shrink-0', getDisplayStatus(video).class]">
+                        {{ getDisplayStatus(video).label }}
                     </span>
                 </Link>
             </div>

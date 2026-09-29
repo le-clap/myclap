@@ -43,15 +43,13 @@ class VideoUploadApiController extends Controller
         $validated = $request->validate([
             'fileChunk' => 'required|file',
             'startIndex' => 'required|integer|min:0',
-            'chunkSize' => 'required|integer|min:1',
         ]);
 
         return $this->guard($video, fn () => response()->json(
             $this->uploadService->processChunk(
                 $video,
                 $request->file('fileChunk'),
-                $validated['startIndex'],
-                $validated['chunkSize']
+                $validated['startIndex']
             )
         ));
     }

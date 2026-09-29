@@ -28,8 +28,6 @@ const abortController = ref(null)
 const cancelled = ref(false)
 const resumeFileInput = ref(null)
 
-const CHUNK_SIZE = 2 * 1024 * 1024 // 2 Mio chunks
-
 const hasResumableUpload = computed(() => {
     return props.uploadProgress && !cancelled.value && !uploading.value && progress.value < 100
 })
@@ -107,7 +105,7 @@ async function uploadFile() {
         )
 
         let startIndex = initData.startIndex
-        let chunkSize = initData.chunkSize || CHUNK_SIZE
+        const chunkSize = initData.chunkSize
 
         status.value = 'Envoi en cours...'
         uploadedSize.value = startIndex
@@ -121,7 +119,6 @@ async function uploadFile() {
             const formData = new FormData()
             formData.append('fileChunk', chunk)
             formData.append('startIndex', startIndex)
-            formData.append('chunkSize', chunkSize)
 
             const {data: processData} = await axios.post(
                 `/manager/videos/v/${props.videoToken}/upload/process`,
@@ -130,7 +127,6 @@ async function uploadFile() {
             )
 
             startIndex = processData.startIndex
-            chunkSize = processData.chunkSize || chunkSize
             uploadedSize.value = startIndex
             progress.value = Math.min((startIndex / totalSize.value) * 100, 99)
 

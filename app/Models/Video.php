@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Video extends Model
 {
@@ -34,6 +35,12 @@ class Video extends Model
         'created_on',
         'uploaded_on',
         'uploaded_by',
+        'video_codec',
+        'audio_codec',
+        'width',
+        'height',
+        'bitrate',
+        'faststart',
     ];
 
     protected $appends = [
@@ -43,7 +50,6 @@ class Video extends Model
         'author',
         'access_label',
         'upload_status_label',
-        'bitrate',
     ];
 
     protected function casts(): array
@@ -57,6 +63,10 @@ class Video extends Model
             'created_on' => 'date',
             'uploaded_on' => 'datetime',
             'upload_status' => UploadStatus::class,
+            'width' => 'integer',
+            'height' => 'integer',
+            'bitrate' => 'integer',
+            'faststart' => 'boolean',
         ];
     }
 
@@ -110,6 +120,22 @@ class Video extends Model
         return $this->hasMany(VideoView::class, 'video_token', 'token');
     }
 
+    public function upload(): HasOne
+    {
+        return $this->hasOne(VideoUpload::class, 'video_token', 'token');
+    }
+
+    public function transcodeAttempts(): HasMany
+    {
+        return $this->hasMany(VideoTranscode::class, 'video_token', 'token');
+    }
+
+    public function latestTranscodeAttempt(): HasOne
+    {
+        return $this->hasOne(VideoTranscode::class, 'video_token', 'token')
+            ->latestOfMany(['started_on', 'id']);
+    }
+
     // Scopes
     public function scopePublished(Builder $query): Builder
     {
@@ -129,6 +155,14 @@ class Video extends Model
         return $query->whereIn('access', array_map(fn (ContentAccess $a) => $a->value, $accesses));
     }
 
+    public function scopeSearch(Builder $query, string $term): Builder
+    {
+        return $query->where(
+            fn (Builder $q) => $q->where('name', 'ILIKE', "%{$term}%")
+                ->orWhere('token', 'ILIKE', "%{$term}%")
+        );
+    }
+
     // Accessors
     protected function author(): Attribute
     {
@@ -139,32 +173,45 @@ class Video extends Model
     {
         return Attribute::make(
             get: fn () => route('watch.media.thumbnail', ['video' => $this->token, 'size' => 1080])
+                .$this->versionQuery($this->thumbnail_identifier)
         );
     }
 
     protected function thumbnailUrls(): Attribute
     {
+        $version = $this->versionQuery($this->thumbnail_identifier);
+
         return Attribute::make(get: fn () => [
-            '1080' => route('watch.media.thumbnail', ['video' => $this->token, 'size' => 1080]),
-            '480' => route('watch.media.thumbnail', ['video' => $this->token, 'size' => 480]),
-            '120' => route('watch.media.thumbnail', ['video' => $this->token, 'size' => 120]),
+            '1080' => route('watch.media.thumbnail', ['video' => $this->token, 'size' => 1080]).$version,
+            '480' => route('watch.media.thumbnail', ['video' => $this->token, 'size' => 480]).$version,
+            '120' => route('watch.media.thumbnail', ['video' => $this->token, 'size' => 120]).$version,
         ]);
     }
 
     protected function videoUrl(): Attribute
     {
-        return Attribute::make(get: fn () => route('watch.media.video', ['video' => $this->token]));
+        return Attribute::make(
+            get: fn () => route('watch.media.video', ['video' => $this->token])
+                .$this->versionQuery($this->file_identifier)
+        );
     }
 
-    protected function bitrate(): Attribute
+    /**
+     * Appending a fingerprint of the current file identifier
+     * makes the URL itself change whenever the content does, forcing a fresh fetch.
+     */
+    private function versionQuery(?string $identifier): string
     {
-        return Attribute::make(get: function () {
-            if (! $this->file_size || ! $this->duration || $this->duration <= 0) {
-                return null;
-            }
+        if ($identifier === null) {
+            return '';
+        }
 
-            return ($this->file_size * 8) / $this->duration;
-        });
+        return '?v='.self::version($identifier);
+    }
+
+    public static function version(string $identifier): string
+    {
+        return substr(sha1($identifier), 0, 8);
     }
 
     protected function accessLabel(): Attribute

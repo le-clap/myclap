@@ -6,9 +6,9 @@ use App\Models\Video;
 use App\Services\ThumbnailService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class MediaController extends Controller
 {
@@ -16,7 +16,7 @@ class MediaController extends Controller
         private readonly ThumbnailService $thumbnailService
     ) {}
 
-    public function video(Request $request, Video $video): Response
+    public function video(Request $request, Video $video): SymfonyResponse
     {
         abort_unless($video->isPublished(), 404);
 
@@ -26,11 +26,12 @@ class MediaController extends Controller
             abort(404);
         }
 
+        // Fail directly if the file has changed
+        abort_if($request->has('v') && $request->query('v') !== Video::version($video->file_identifier), 404);
+
         $filename = Str::slug($video->name).'.mp4';
 
-        // X-Accel-Redirect for nginx
-        return response('', 200, [
-            'X-Accel-Redirect' => '/internal-storage/'.$video->file_identifier,
+        return $this->serveFile($video->file_identifier, [
             'Content-Type' => 'video/mp4',
             'Content-Disposition' => 'inline; filename="'.$filename.'"',
             'Accept-Ranges' => 'bytes',
@@ -38,7 +39,7 @@ class MediaController extends Controller
         ]);
     }
 
-    public function videoDownload(Request $request, Video $video): Response
+    public function videoDownload(Request $request, Video $video): SymfonyResponse
     {
         abort_unless($video->isPublished(), 404);
 
@@ -50,15 +51,13 @@ class MediaController extends Controller
 
         $filename = Str::slug($video->name).'.mp4';
 
-        // X-Accel-Redirect for nginx
-        return response('', 200, [
-            'X-Accel-Redirect' => '/internal-storage/'.$video->file_identifier,
+        return $this->serveFile($video->file_identifier, [
             'Content-Type' => 'application/octet-stream',
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
 
-    public function thumbnail(Request $request, Video $video): Response|RedirectResponse
+    public function thumbnail(Request $request, Video $video): SymfonyResponse|RedirectResponse
     {
         $size = (int) $request->query('size', 1080);
 
@@ -74,9 +73,7 @@ class MediaController extends Controller
             return $this->placeholderRedirect($size);
         }
 
-        // X-Accel-Redirect for nginx
-        return response('', 200, [
-            'X-Accel-Redirect' => '/internal-storage/'.$path,
+        return $this->serveFile($path, [
             'Content-Type' => 'image/jpeg',
             'Cache-Control' => 'private, max-age=86400',
         ]);
@@ -95,5 +92,19 @@ class MediaController extends Controller
         return redirect('/static/myclap/thumbnail/'.$placeholder, 302, [
             'Cache-Control' => 'public, max-age=604800',
         ]);
+    }
+
+    /**
+     * Serves a private-disk file directly, or via nginx's X-Accel-Redirect
+     * when it's in front (config('media.serve_via_x_accel_redirect')) —
+     * see that config key's doc block for why the two paths must differ.
+     */
+    private function serveFile(string $relativePath, array $headers): SymfonyResponse
+    {
+        if (config('media.serve_via_x_accel_redirect')) {
+            return response('', 200, ['X-Accel-Redirect' => '/internal-storage/'.$relativePath, ...$headers]);
+        }
+
+        return response()->file(Storage::disk('local')->path($relativePath), $headers);
     }
 }

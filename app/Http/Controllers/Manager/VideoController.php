@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Manager;
 
 use App\Enums\ContentAccess;
+use App\Enums\TranscodeStatus;
 use App\Enums\UploadStatus;
 use App\Http\Controllers\Controller;
+use App\Jobs\TranscodeVideoJob;
 use App\Models\Category;
 use App\Models\Playlist;
 use App\Models\Video;
-use App\Models\VideoUpload;
 use App\Services\ThumbnailService;
 use App\Services\VideoUploadService;
 use Illuminate\Http\Request;
@@ -35,9 +36,6 @@ class VideoController extends Controller
         $sort = (string) ($validated['sort'] ?? '-uploaded_on');
         $limit = (int) ($validated['limit'] ?? 24);
 
-        $sortDir = str_starts_with($sort, '-') ? 'desc' : 'asc';
-        $sortBy = ltrim($sort, '-');
-
         $allowedSortFields = [
             'uploaded_on',
             'created_on',
@@ -51,24 +49,22 @@ class VideoController extends Controller
             'upload_status',
         ];
 
+        $videosQuery = Video::query()->with('latestTranscodeAttempt');
+
+        if ($query !== '') {
+            $videosQuery->search($query);
+        }
+
+        $sortDir = str_starts_with($sort, '-') ? 'desc' : 'asc';
+        $sortBy = ltrim($sort, '-');
+
         if (! in_array($sortBy, $allowedSortFields, true)) {
             $sortBy = 'uploaded_on';
             $sortDir = 'desc';
         }
 
-        $videosQuery = Video::query();
-
-        if ($query !== '') {
-            $videosQuery->where(function ($q) use ($query) {
-                $q->where('name', 'ILIKE', "%{$query}%")
-                    ->orWhere('token', 'ILIKE', "%{$query}%");
-            });
-        }
-
         if ($sortBy === 'bitrate') {
-            $videosQuery
-                ->orderByRaw('CASE WHEN duration IS NULL OR duration = 0 OR file_size IS NULL THEN 1 ELSE 0 END ASC')
-                ->orderByRaw('(file_size * 1.0) / NULLIF(duration, 0) '.strtoupper($sortDir));
+            $videosQuery->orderByRaw("bitrate {$sortDir} NULLS LAST");
         } else {
             $videosQuery->orderBy($sortBy, $sortDir);
         }
@@ -183,7 +179,7 @@ class VideoController extends Controller
     {
         $this->authorize('update', $video);
 
-        $video->load('categories');
+        $video->load('categories', 'latestTranscodeAttempt');
 
         return Inertia::render('Manager/Videos/Edit', [
             'video' => $video,
@@ -253,6 +249,32 @@ class VideoController extends Controller
         ]);
     }
 
+    public function transcode(Request $request, Video $video)
+    {
+        $this->authorize('update', $video);
+
+        if (! $video->file_identifier) {
+            abort(404);
+        }
+
+        $inFlight = $video->transcodeAttempts()
+            ->whereIn('status', [TranscodeStatus::PENDING->value, TranscodeStatus::PROCESSING->value])
+            ->exists();
+
+        if ($inFlight) {
+            return back()->with('info', 'Un traitement est déjà en cours pour cette vidéo.');
+        }
+
+        $attempt = $video->transcodeAttempts()->create([
+            'status' => TranscodeStatus::PENDING,
+            'started_on' => now(),
+        ]);
+
+        TranscodeVideoJob::dispatch($video, $attempt);
+
+        return back()->with('success', 'Vérification lancée.');
+    }
+
     public function destroy(Request $request, Video $video)
     {
         $this->authorize('delete', $video);
@@ -268,7 +290,7 @@ class VideoController extends Controller
         }
 
         // Delete upload if exists
-        VideoUpload::where('video_token', $video->token)->delete();
+        $video->upload()->delete();
 
         $video->delete();
 

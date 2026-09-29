@@ -1,0 +1,25 @@
+[Unit]
+Description=myCLAP transcode worker
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/myclap-v2
+ExecStart=/usr/bin/php artisan queue:work --queue=transcode \
+  --sleep=5 --tries=1 --timeout=0 --memory=256 --max-time=3600
+Restart=always
+RestartSec=5
+
+CPUWeight=idle
+CPUQuota=100%
+MemoryHigh=640M
+MemoryMax=768M
+OOMPolicy=continue
+StandardOutput=append:/var/www/myclap-v2/storage/logs/transcoder.log
+StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target

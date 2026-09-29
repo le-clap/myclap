@@ -10,6 +10,7 @@ use App\Http\Controllers\Manager\CategoryController;
 use App\Http\Controllers\Manager\DashboardController;
 use App\Http\Controllers\Manager\PlaylistController;
 use App\Http\Controllers\Manager\StatController;
+use App\Http\Controllers\Manager\TranscodeController;
 use App\Http\Controllers\Manager\VideoController;
 use App\Http\Controllers\Manager\VideoUploadApiController;
 use App\Http\Controllers\MediaController;
@@ -64,11 +65,13 @@ Route::prefix('manager')->name('manager.')->middleware(['auth', 'permission_grou
         Route::get('/videos/ajouter', [VideoController::class, 'create'])->name('videos.create');
         Route::get('/videos/v/{video}', [VideoController::class, 'edit'])->name('videos.edit');
         Route::get('/videos/v/{video}/envoyer', [VideoController::class, 'upload'])->name('videos.upload');
+        Route::get('/transcodage', [TranscodeController::class, 'index'])->name('transcode.index');
 
         // Videos API
         Route::post('/videos', [VideoController::class, 'store'])->name('videos.store');
         Route::put('/videos/v/{video}', [VideoController::class, 'update'])->name('videos.update');
         Route::delete('/videos/v/{video}', [VideoController::class, 'destroy'])->name('videos.destroy');
+        Route::post('/videos/v/{video}/transcode', [VideoController::class, 'transcode'])->name('videos.transcode');
 
         // Video Upload API
         Route::post('/videos/v/{video}/upload/init', [VideoUploadApiController::class, 'init'])->name('videos.upload.init');

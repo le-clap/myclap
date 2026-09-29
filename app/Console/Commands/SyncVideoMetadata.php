@@ -10,7 +10,7 @@ class SyncVideoMetadata extends Command
 {
     protected $signature = 'videos:sync-metadata';
 
-    protected $description = 'Sync duration and file size for all videos';
+    protected $description = 'Sync duration, file size, and probed codec/resolution/bitrate for all videos';
 
     public function __construct(
         private readonly VideoService $videoService
