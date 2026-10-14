@@ -39,7 +39,7 @@ onMounted(() => {
 })
 
 watch(() => props.modelValue, (newVal) => {
-    if (fpInstance && newVal !== fpInstance.selectedDates[0]?.toISOString().split('T')[0]) {
+    if (fpInstance && newVal !== fpInstance.input.value) {
         fpInstance.setDate(newVal, false)
     }
 })

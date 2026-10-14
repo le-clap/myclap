@@ -1,6 +1,6 @@
 <script setup>
 import {Link} from '@inertiajs/vue3'
-import {formatDuration, formatRelativeTime} from '@/utils/date'
+import {formatDuration, formatRelativeDay} from '@/utils/date'
 
 const props = defineProps({
     video: {
@@ -41,7 +41,7 @@ const watchUrl = props.playlistSlug
             <div class="flex items-center gap-2 mt-2 text-sm text-gray-400">
                 <span>{{ video.views?.toLocaleString() || 0 }} vues</span>
                 <span>•</span>
-                <span>{{ formatRelativeTime(video.created_on) }}</span>
+                <span>{{ formatRelativeDay(video.created_on) }}</span>
                 <span>•</span>
                 <span class="flex items-center gap-1">
                     {{ video.reactions?.toLocaleString() || 0 }}

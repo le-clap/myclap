@@ -11,6 +11,12 @@ export function formatDuration(seconds) {
     return `${minutes}:${String(secs).padStart(2, '0')}`;
 }
 
+// A day ("2026-10-12") is not an instant: read it as local midnight. new Date() alone
+// reads it as UTC midnight, which shows the previous day west of UTC.
+export function parseDay(day) {
+    return new Date(day + 'T00:00');
+}
+
 export function formatDate(dateString) {
     if (!dateString) return '-';
 
@@ -39,58 +45,13 @@ export function formatDateTime(dateString) {
     });
 }
 
-export function formatDateShort(dateString) {
-    if (!dateString) return '-';
+export function formatRelativeDay(day) {
+    if (!day) return '';
 
-    const date = new Date(dateString);
-
-    // Format: "26/03/2025"
-    return date.toLocaleDateString('fr-FR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-    });
-}
-
-export function formatRelativeTime(dateString) {
-    if (!dateString) return '';
-
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInSeconds = Math.floor((now - date) / 1000);
-
-    const intervals = {
-        year: 31536000,
-        month: 2592000,
-        week: 604800,
-        day: 86400,
-        hour: 3600,
-        minute: 60
-    };
-
-    if (diffInSeconds < 60) {
-        return "Il y a quelques secondes";
-    }
-
-    for (const [unit, seconds] of Object.entries(intervals)) {
-        const interval = Math.floor(diffInSeconds / seconds);
-
-        if (interval >= 1) {
-            if (unit === 'year') {
-                return interval === 1 ? 'Il y a 1 an' : `Il y a ${interval} ans`;
-            } else if (unit === 'month') {
-                return interval === 1 ? 'Il y a 1 mois' : `Il y a ${interval} mois`;
-            } else if (unit === 'week') {
-                return interval === 1 ? 'Il y a 1 semaine' : `Il y a ${interval} semaines`;
-            } else if (unit === 'day') {
-                return interval === 1 ? 'Il y a 1 jour' : `Il y a ${interval} jours`;
-            } else if (unit === 'hour') {
-                return interval === 1 ? 'Il y a 1 heure' : `Il y a ${interval} heures`;
-            } else if (unit === 'minute') {
-                return interval === 1 ? 'Il y a 1 minute' : `Il y a ${interval} minutes`;
-            }
-        }
-    }
-
-    return '';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const days = Math.round((parseDay(day) - today) / 86400000); // round: DST days are 23h/25h
+    const [size, unit] = [[365, 'year'], [30, 'month'], [7, 'week']].find(([n]) => Math.abs(days) >= n) ?? [1, 'day'];
+    const text = new Intl.RelativeTimeFormat('fr', {numeric: unit === 'day' ? 'auto' : 'always'}).format(Math.trunc(days / size), unit);
+    return text[0].toUpperCase() + text.slice(1);
 }
