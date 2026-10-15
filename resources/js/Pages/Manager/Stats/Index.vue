@@ -2,7 +2,7 @@
 import {Head, Link} from '@inertiajs/vue3'
 import {computed, onMounted, ref} from 'vue'
 import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
-import {formatDateTime, formatDuration} from '@/utils/date'
+import {formatDateTime, formatDuration, parseDay} from '@/utils/date'
 import axios from 'axios'
 
 const animate = ref(false)
@@ -89,7 +89,7 @@ async function searchVideos() {
 const chartData = computed(() => {
     if (!props.recentViewsData || props.recentViewsData.length === 0) return []
     return props.recentViewsData.map(d => ({
-        date: new Date(d.date).toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit'}),
+        date: parseDay(d.date).toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit'}),
         views: d.views
     }))
 })

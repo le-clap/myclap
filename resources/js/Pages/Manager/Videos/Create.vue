@@ -21,7 +21,7 @@ const props = defineProps({
 const form = useForm({
     name: '',
     description: '',
-    created_on: new Date().toISOString().split('T')[0],
+    created_on: new Date().toLocaleDateString('sv-SE'), // local YYYY-MM-DD
     categories: [],
     access: 3,
     thumbnail: null,

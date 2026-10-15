@@ -28,7 +28,7 @@ const props = defineProps({
 const form = useForm({
     name: props.video.name || '',
     description: props.video.description || '',
-    created_on: props.video.created_on ? props.video.created_on.split('T')[0] : '',
+    created_on: props.video.created_on ?? '',
     categories: [...props.videoCategorySlugs],
     access: props.video.access ?? 3,
     thumbnail: null,

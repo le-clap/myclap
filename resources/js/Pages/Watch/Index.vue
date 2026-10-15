@@ -3,7 +3,7 @@ import {Head, router, usePage} from '@inertiajs/vue3'
 import {computed, ref} from 'vue'
 import AppLayout from '@/Components/Layout/AppLayout.vue'
 import VideoPlayer from '@/Components/VideoPlayer.vue'
-import {formatDate} from '@/utils/date'
+import {formatDate, parseDay} from '@/utils/date'
 import axios from 'axios'
 
 const props = defineProps({
@@ -65,7 +65,7 @@ const categories = computed(() => {
                 <div class="flex flex-wrap items-center gap-4 text-gray-400">
                     <span>{{ video.views?.toLocaleString() || 0 }} vues</span>
                     <span>•</span>
-                    <span>{{ formatDate(video.created_on) }}</span>
+                    <span>{{ formatDate(parseDay(video.created_on)) }}</span>
                 </div>
 
                 <!-- Actions -->

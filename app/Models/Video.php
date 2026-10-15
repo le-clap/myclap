@@ -60,7 +60,7 @@ class Video extends Model
             'reactions' => 'integer',
             'duration' => 'integer',
             'file_size' => 'integer',
-            'created_on' => 'date',
+            'created_on' => 'date:Y-m-d',
             'uploaded_on' => 'datetime',
             'upload_status' => UploadStatus::class,
             'width' => 'integer',
