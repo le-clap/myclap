@@ -75,7 +75,8 @@ class VideoController extends Controller
 
         $videos = $videosQuery
             ->paginate($limit)
-            ->withQueryString();
+            ->withQueryString()
+            ->through(fn (Video $video) => $video->makeVisible('uploaded_by'));
 
         return Inertia::render('Manager/Videos/Index', [
             'videos' => $videos,
