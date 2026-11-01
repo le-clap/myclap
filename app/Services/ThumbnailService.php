@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\Encoders\JpegEncoder;
 use Intervention\Image\ImageManager;
 
 class ThumbnailService
@@ -85,7 +86,7 @@ class ThumbnailService
 
     private function generateVariant(string $binary, string $identifier, int $width, int $height): void
     {
-        $image = $this->manager->read($binary);
+        $image = $this->manager->decodeBinary($binary);
 
         // Calculate dimensions maintaining 16:9 aspect ratio
         $originalWidth = $image->width();
@@ -105,7 +106,7 @@ class ThumbnailService
         $image->scale($newWidth, $newHeight);
 
         $outputPath = Storage::disk('local')->path($this->getVariantPath($identifier, $height));
-        $image->toJpeg(quality: 85)->save($outputPath);
+        $image->encode(new JpegEncoder(quality: 85))->save($outputPath);
     }
 
     public function getVariantFilename(string $identifier, int $height): string
