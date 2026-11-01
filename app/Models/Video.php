@@ -6,6 +6,7 @@ use App\Enums\ContentAccess;
 use App\Enums\UploadStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -14,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Video extends Model
 {
+    use HasFactory;
+
     protected $table = 'video';
 
     protected $primaryKey = 'id';
@@ -162,8 +165,8 @@ class Video extends Model
     public function scopeSearch(Builder $query, string $term): Builder
     {
         return $query->where(
-            fn (Builder $q) => $q->where('name', 'ILIKE', "%{$term}%")
-                ->orWhere('token', 'ILIKE', "%{$term}%")
+            fn (Builder $q) => $q->whereLike('name', "%{$term}%")
+                ->orWhereLike('token', "%{$term}%")
         );
     }
 
