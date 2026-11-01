@@ -6,6 +6,7 @@ use App\Enums\ContentAccess;
 use App\Enums\PlaylistType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -15,7 +16,7 @@ use Spatie\EloquentSortable\SortableTrait;
 
 class Playlist extends Model implements Sortable
 {
-    use SortableTrait;
+    use HasFactory, SortableTrait;
 
     protected $table = 'playlist';
 
