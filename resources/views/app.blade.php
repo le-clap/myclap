@@ -9,7 +9,6 @@
 
     <link rel="icon" type="image/png" href="/favicon.ico">
 
-    @routes
     @vite(['resources/js/app.js'])
     @inertiaHead
 </head>

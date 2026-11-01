@@ -164,7 +164,7 @@ class StatController extends Controller
             });
 
         return Inertia::render('Manager/Stats/Video', [
-            'video' => $video,
+            'video' => $video->makeVisible('uploaded_by'),
             'viewsData' => $viewsData,
             'uniqueViewers' => $uniqueViewers,
             'averageWatchTime' => (int) $averageWatchTime,

@@ -43,11 +43,15 @@ class Video extends Model
         'faststart',
     ];
 
+    protected $hidden = [
+        'file_identifier',
+        'uploaded_by',
+    ];
+
     protected $appends = [
         'thumbnail_url',
         'thumbnail_urls',
         'video_url',
-        'author',
         'access_label',
         'upload_status_label',
     ];
@@ -164,11 +168,6 @@ class Video extends Model
     }
 
     // Accessors
-    protected function author(): Attribute
-    {
-        return Attribute::make(get: fn () => $this->uploaded_by);
-    }
-
     protected function thumbnailUrl(): Attribute
     {
         return Attribute::make(

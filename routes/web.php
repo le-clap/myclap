@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Route;
 // ===== Authentication =====
 Route::get('/login', [CLAController::class, 'login'])->name('login');
 Route::get('/login/cla', [CLAController::class, 'handleCallback'])->name('auth.cla.callback');
-Route::get('/logout', [CLAController::class, 'logout'])->name('logout');
+Route::post('/logout', [CLAController::class, 'logout'])->name('logout');
 
 // ===== Public Pages =====
 Route::get('/', [HomeController::class, 'index'])->name('home');

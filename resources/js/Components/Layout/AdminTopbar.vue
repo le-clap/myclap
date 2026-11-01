@@ -37,6 +37,9 @@ import {Link} from '@inertiajs/vue3'
 
             <Link
                 href="/logout"
+                method="post"
+                as="button"
+                aria-label="Se déconnecter"
                 class="p-2 hover:bg-[#3a3a3a] rounded-full"
                 title="Se déconnecter"
             >
