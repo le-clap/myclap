@@ -41,11 +41,13 @@ class User extends Authenticatable
         ];
     }
 
+    /** @return HasMany<UserPermission, $this> */
     public function permissions(): HasMany
     {
         return $this->hasMany(UserPermission::class, 'username', 'username');
     }
 
+    /** @return HasMany<VideoReaction, $this> */
     public function reactions(): HasMany
     {
         return $this->hasMany(VideoReaction::class, 'username', 'username');

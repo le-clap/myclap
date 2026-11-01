@@ -12,7 +12,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 
+/**
+ * Enum/date casts, declared for static analysis.
+ *
+ * @property ContentAccess $access
+ * @property UploadStatus $upload_status
+ * @property Carbon $created_on
+ * @property Carbon $uploaded_on
+ * @property-read string $thumbnail_url
+ */
 class Video extends Model
 {
     use HasFactory;
@@ -88,11 +98,13 @@ class Video extends Model
     }
 
     // Relations
+    /** @return BelongsTo<User, $this> */
     public function uploader(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploaded_by', 'username');
     }
 
+    /** @return BelongsToMany<Category, $this> */
     public function categories(): BelongsToMany
     {
         return $this->belongsToMany(
@@ -105,6 +117,7 @@ class Video extends Model
         );
     }
 
+    /** @return BelongsToMany<Playlist, $this> */
     public function playlists(): BelongsToMany
     {
         return $this->belongsToMany(
@@ -117,26 +130,31 @@ class Video extends Model
         )->withPivot('position');
     }
 
+    /** @return HasMany<VideoReaction, $this> */
     public function videoReactions(): HasMany
     {
         return $this->hasMany(VideoReaction::class, 'video_token', 'token');
     }
 
+    /** @return HasMany<VideoView, $this> */
     public function videoViews(): HasMany
     {
         return $this->hasMany(VideoView::class, 'video_token', 'token');
     }
 
+    /** @return HasOne<VideoUpload, $this> */
     public function upload(): HasOne
     {
         return $this->hasOne(VideoUpload::class, 'video_token', 'token');
     }
 
+    /** @return HasMany<VideoTranscode, $this> */
     public function transcodeAttempts(): HasMany
     {
         return $this->hasMany(VideoTranscode::class, 'video_token', 'token');
     }
 
+    /** @return HasOne<VideoTranscode, $this> */
     public function latestTranscodeAttempt(): HasOne
     {
         return $this->hasOne(VideoTranscode::class, 'video_token', 'token')

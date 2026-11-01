@@ -33,7 +33,7 @@ class TranscodeController extends Controller
             ->orderByDesc('id');
 
         if ($query !== '') {
-            $attemptsQuery->whereHas('video', fn ($q) => $q->search($query));
+            $attemptsQuery->whereHas('video', fn ($q) => $q->search($query)); // @phpstan-ignore method.notFound (Video scope)
         }
 
         if (isset(self::STATUS_BUCKETS[$status])) {
@@ -65,7 +65,7 @@ class TranscodeController extends Controller
             $attempt->video->setAppends(['thumbnail_urls']);
 
             if ($attempt->status === TranscodeStatus::PROCESSING) {
-                $attempt->progress = Cache::get("transcode:{$attempt->video_token}:progress");
+                $attempt->setAttribute('progress', Cache::get("transcode:{$attempt->video_token}:progress"));
             }
 
             return $attempt;
