@@ -33,6 +33,7 @@ class Category extends Model
         return 'slug';
     }
 
+    /** @return BelongsToMany<Video, $this> */
     public function videos(): BelongsToMany
     {
         return $this->belongsToMany(
@@ -45,6 +46,7 @@ class Category extends Model
         );
     }
 
+    /** @return BelongsToMany<Video, $this> */
     public function publishedVideos(?User $user = null): BelongsToMany
     {
         return $this->videos()->published()->accessibleBy($user);

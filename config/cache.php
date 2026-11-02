@@ -114,4 +114,8 @@ return [
 
     'prefix' => env('CACHE_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')).'-cache-'),
 
+    // Only scalars are cached (transcode progress), so refuse to unserialize
+    // any PHP object: blocks gadget-chain attacks if APP_KEY ever leaks.
+    'serializable_classes' => false,
+
 ];

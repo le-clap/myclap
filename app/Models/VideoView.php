@@ -11,7 +11,11 @@ class VideoView extends Model
 
     protected $primaryKey = 'id';
 
-    public $timestamps = false;
+    // Stamped by the app, not the DB default: the anti-spam and 25 s view
+    // threshold compare these with now(), so both must use the app timezone.
+    const CREATED_AT = 'created_on';
+
+    const UPDATED_AT = 'updated_on';
 
     protected $fillable = [
         'video_token',

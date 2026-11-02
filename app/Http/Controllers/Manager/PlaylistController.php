@@ -164,8 +164,8 @@ class PlaylistController extends Controller
 
         $baseQuery = Video::published()
             ->where(function ($q) use ($query) {
-                $q->where('name', 'ILIKE', "%{$query}%")
-                    ->orWhere('token', 'ILIKE', "%{$query}%");
+                $q->whereLike('name', "%{$query}%")
+                    ->orWhereLike('token', "%{$query}%");
             })
             ->when(! empty($exclude), function ($q) use ($exclude) {
                 $q->whereNotIn('token', $exclude);

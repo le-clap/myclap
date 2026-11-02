@@ -7,7 +7,14 @@ use App\Services\Media\TranscodeAction;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property TranscodeAction|null $action
+ * @property TranscodeStatus $status
+ * @property Carbon|null $started_on
+ * @property Carbon|null $finished_on
+ */
 class VideoTranscode extends Model
 {
     protected $table = 'video_transcode';
@@ -46,7 +53,7 @@ class VideoTranscode extends Model
 
     protected function statusLabel(): Attribute
     {
-        return Attribute::make(get: fn () => $this->status?->label());
+        return Attribute::make(get: fn () => $this->status->label());
     }
 
     protected function actionLabel(): Attribute

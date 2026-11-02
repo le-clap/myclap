@@ -1,10 +1,16 @@
 @import 'tailwindcss';
 @import './fonts.css';
-@import '@fortawesome/fontawesome-free/css/all.min.css';
-@import 'flatpickr/dist/flatpickr.min.css';
+/* Solid style only: billboards render user-chosen icons with the `fas` class. */
+@import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
+@import '@fortawesome/fontawesome-free/css/solid.min.css';
 
 @source '../**/*.vue';
 @source '../**/*.js';
+
+/* Native date pickers, scrollbars and form controls follow the dark theme. */
+:root {
+    color-scheme: dark;
+}
 
 @theme {
     --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;

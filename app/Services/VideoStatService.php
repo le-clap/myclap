@@ -17,8 +17,7 @@ class VideoStatService
         $hasReachedLimit = VideoView::where('video_token', $video->token)
             ->where('php_sid', $phpSid)
             ->whereBetween('created_on', [now()->startOfDay(), now()->endOfDay()])
-            ->skip(49)
-            ->exists();
+            ->count() >= 50;
 
         if ($hasReachedLimit) {
             return null;
@@ -74,7 +73,6 @@ class VideoStatService
             $video->increment('views');
         }
 
-        $view->updated_on = now();
-        $view->save();
+        $view->touch();
     }
 }

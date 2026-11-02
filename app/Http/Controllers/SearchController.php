@@ -19,8 +19,8 @@ class SearchController extends Controller
             $videos = Video::published()
                 ->accessibleBy($user)
                 ->where(function ($q) use ($query) {
-                    $q->where('name', 'ILIKE', "%{$query}%")
-                        ->orWhere('description', 'ILIKE', "%{$query}%");
+                    $q->whereLike('name', "%{$query}%")
+                        ->orWhereLike('description', "%{$query}%");
                 })
                 ->orderBy('created_on', 'desc')
                 ->limit(50)
@@ -41,7 +41,7 @@ class SearchController extends Controller
 
         $baseQuery = Video::published()
             ->accessibleBy($user)
-            ->where('name', 'ILIKE', "%{$query}%");
+            ->whereLike('name', "%{$query}%");
 
         $total = $baseQuery->clone()->count();
 

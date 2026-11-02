@@ -6,16 +6,24 @@ use App\Enums\ContentAccess;
 use App\Enums\PlaylistType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Spatie\EloquentSortable\Sortable;
 use Spatie\EloquentSortable\SortableTrait;
 
+/**
+ * @property ContentAccess $access
+ * @property PlaylistType $type
+ * @property Carbon $created_on
+ * @property Carbon $modified_on
+ */
 class Playlist extends Model implements Sortable
 {
-    use SortableTrait;
+    use HasFactory, SortableTrait;
 
     protected $table = 'playlist';
 
@@ -66,7 +74,7 @@ class Playlist extends Model implements Sortable
     {
         return $query
             ->orderByDesc('type')
-            ->ordered()
+            ->ordered() // @phpstan-ignore method.notFound (Spatie SortableTrait scope)
             ->orderBy('name')
             ->orderBy('id');
     }
@@ -76,6 +84,7 @@ class Playlist extends Model implements Sortable
         return static::query()->where('type', $this->type);
     }
 
+    /** @return BelongsToMany<Video, $this> */
     public function videos(): BelongsToMany
     {
         return $this->belongsToMany(
@@ -119,6 +128,7 @@ class Playlist extends Model implements Sortable
         return $this->videos()->pluck('token')->toArray();
     }
 
+    /** @return BelongsTo<User, $this> */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'modified_by', 'username');

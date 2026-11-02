@@ -68,7 +68,7 @@ class StatController extends Controller
             ->limit(50)
             ->get()
             ->map(function ($view) {
-                $view->is_authenticated = ! empty($view->username);
+                $view->setAttribute('is_authenticated', ! empty($view->username));
                 unset($view->username);
 
                 return $view;
@@ -157,7 +157,7 @@ class StatController extends Controller
             ->limit(50)
             ->get()
             ->map(function ($view) {
-                $view->is_authenticated = ! empty($view->username);
+                $view->setAttribute('is_authenticated', ! empty($view->username));
                 unset($view->username);
 
                 return $view;

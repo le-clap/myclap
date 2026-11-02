@@ -2,7 +2,6 @@
 import {computed} from 'vue'
 import {Head, Link, router, useForm} from '@inertiajs/vue3'
 import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
-import DatePicker from '@/Components/DatePicker.vue'
 import {formatDuration} from '@/utils/date'
 import {formatBitrate, formatFileSize, getDisplayStatus} from '@/utils/video'
 
@@ -175,10 +174,13 @@ function recheckTranscode() {
 
                 <!-- Created on -->
                 <div>
-                    <label class="block text-sm font-medium mb-2">Date de création *</label>
-                    <DatePicker
+                    <label for="created_on" class="block text-sm font-medium mb-2">Date de création *</label>
+                    <input
+                        id="created_on"
                         v-model="form.created_on"
-                        :required="true"
+                        type="date"
+                        required
+                        class="w-full bg-dark-surface border border-[#3a3a3a] rounded-lg px-4 py-2 text-white focus:outline-none focus:border-myclap-red"
                     />
                 </div>
 
