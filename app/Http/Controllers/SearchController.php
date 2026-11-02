@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Video;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class SearchController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): Response
     {
         $query = $request->query('value', '');
         $user = $request->user();
@@ -33,7 +35,7 @@ class SearchController extends Controller
         ]);
     }
 
-    public function searchApi(Request $request)
+    public function searchApi(Request $request): JsonResponse
     {
         $user = $request->user();
         $query = $request->query('q', '');

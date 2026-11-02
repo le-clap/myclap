@@ -8,13 +8,15 @@ use App\Models\Billboard;
 use App\Models\Category;
 use App\Models\Playlist;
 use App\Models\Video;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class HomeController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): Response
     {
         $user = $request->user();
 
@@ -30,7 +32,7 @@ class HomeController extends Controller
         ]);
     }
 
-    public function loadVideos(Request $request)
+    public function loadVideos(Request $request): JsonResponse
     {
         $user = $request->user();
         $offset = max((int) $request->get('offset', 0), 0);
@@ -48,7 +50,7 @@ class HomeController extends Controller
         return response()->json(['videos' => $videos, 'total' => $total]);
     }
 
-    public function playlists(Request $request)
+    public function playlists(Request $request): Response
     {
         $user = $request->user();
 
@@ -72,7 +74,7 @@ class HomeController extends Controller
         ]);
     }
 
-    public function playlistDetails(Request $request, Playlist $playlist)
+    public function playlistDetails(Request $request, Playlist $playlist): Response
     {
         $this->authorize('view', $playlist);
 
@@ -84,7 +86,7 @@ class HomeController extends Controller
         ]);
     }
 
-    public function categories(Request $request)
+    public function categories(Request $request): Response
     {
         $categories = Category::orderBy('label')->get();
 
@@ -93,7 +95,7 @@ class HomeController extends Controller
         ]);
     }
 
-    public function categoryDetails(Request $request, Category $category)
+    public function categoryDetails(Request $request, Category $category): Response
     {
         $user = $request->user();
 
@@ -108,7 +110,7 @@ class HomeController extends Controller
         ]);
     }
 
-    public function loadCategoryVideos(Request $request, Category $category)
+    public function loadCategoryVideos(Request $request, Category $category): JsonResponse
     {
         $user = $request->user();
         $offset = max((int) $request->get('offset', 0), 0);
@@ -125,7 +127,7 @@ class HomeController extends Controller
         return response()->json(['videos' => $videos, 'total' => $total]);
     }
 
-    public function favorites(Request $request)
+    public function favorites(Request $request): Response
     {
         $user = $request->user();
 

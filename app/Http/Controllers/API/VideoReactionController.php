@@ -5,11 +5,12 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Video;
 use App\Models\VideoReaction;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class VideoReactionController extends Controller
 {
-    public function toggle(Request $request, Video $video)
+    public function toggle(Request $request, Video $video): JsonResponse
     {
         if (! $request->user()) {
             return response()->json(['error' => 'Authentication required'], 401);
