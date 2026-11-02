@@ -9,7 +9,7 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -17,12 +17,12 @@ jobs:
           extensions: exif, pdo_sqlite
           coverage: none
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
 
-      - name: Install ffmpeg (upload tests probe a real video)
+      - name: Install ffmpeg
         run: sudo apt-get update -q && sudo apt-get install -yq --no-install-recommends ffmpeg
 
       - run: composer install --no-interaction --no-progress --prefer-dist
