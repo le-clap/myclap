@@ -7,6 +7,8 @@ use App\Services\CLAAuthService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class CLAController extends Controller
 {
@@ -14,13 +16,14 @@ class CLAController extends Controller
         private CLAAuthService $claAuth
     ) {}
 
-    public function login(): RedirectResponse
+    public function login(): SymfonyResponse
     {
         if (Auth::check()) {
             return redirect()->intended('/');
         }
 
-        return redirect($this->claAuth->getAuthUrl());
+        // CLA is on another domain: a plain redirect fails CORS on Inertia visits.
+        return Inertia::location($this->claAuth->getAuthUrl());
     }
 
     public function handleCallback(Request $request): RedirectResponse
