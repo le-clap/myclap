@@ -1,7 +1,7 @@
 <script setup>
 import {Head, Link, useForm, usePage} from '@inertiajs/vue3'
 import {computed} from 'vue'
-import AdminLayout from '@/Components/Layout/AdminLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 
 const props = defineProps({
     targetUser: {
@@ -66,7 +66,7 @@ function revokePermission(identifier) {
 
 <template>
     <Head :title="`Admin - Utilisateur ${targetUser.username}`"/>
-    <AdminLayout leftbar-active="permissions">
+    <AppLayout section="admin" leftbar-active="permissions">
         <div class="w-full">
             <div class="flex items-center gap-4 mb-6">
                 <Link href="/admin/permissions" class="text-gray-400 hover:text-white">
@@ -132,5 +132,5 @@ function revokePermission(identifier) {
                 </div>
             </div>
         </div>
-    </AdminLayout>
+    </AppLayout>
 </template>

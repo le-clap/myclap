@@ -1,6 +1,6 @@
 <script setup>
 import {Head, router, useForm} from '@inertiajs/vue3'
-import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 
 const form = useForm({
     label: '',
@@ -14,7 +14,7 @@ function submit() {
 
 <template>
     <Head title="Créer une catégorie"/>
-    <ManagerLayout leftbar-active="categories">
+    <AppLayout section="manager" leftbar-active="categories">
         <div class="w-full">
             <h1 class="text-2xl font-bold mb-6">Nouvelle catégorie</h1>
 
@@ -63,5 +63,5 @@ function submit() {
                 </div>
             </form>
         </div>
-    </ManagerLayout>
+    </AppLayout>
 </template>

@@ -1,7 +1,7 @@
 <script setup>
 import {Head, Link} from '@inertiajs/vue3'
 import {onMounted, ref} from 'vue'
-import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 import {formatDate, formatDateTime, formatDuration} from '@/utils/date'
 
 const animate = ref(false)
@@ -56,7 +56,7 @@ function getPercentage(count, items) {
 
 <template>
     <Head :title="`Stats: ${video.name}`"/>
-    <ManagerLayout leftbar-active="stats">
+    <AppLayout section="manager" leftbar-active="stats">
         <div class="w-full">
             <!-- Header -->
             <div class="flex items-center gap-4 mb-6">
@@ -263,5 +263,5 @@ function getPercentage(count, items) {
                 </div>
             </div>
         </div>
-    </ManagerLayout>
+    </AppLayout>
 </template>

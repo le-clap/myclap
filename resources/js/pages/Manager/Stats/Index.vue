@@ -1,7 +1,7 @@
 <script setup>
 import {Head, Link} from '@inertiajs/vue3'
 import {computed, onMounted, ref} from 'vue'
-import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 import {formatDateTime, formatDuration, parseDay} from '@/utils/date'
 import axios from 'axios'
 
@@ -117,7 +117,7 @@ function getPercentage(count, items) {
 
 <template>
     <Head title="Statistiques"/>
-    <ManagerLayout leftbar-active="stats">
+    <AppLayout section="manager" leftbar-active="stats">
         <div class="w-full">
             <h1 class="text-3xl font-bebas tracking-wide mb-6">Statistiques</h1>
 
@@ -415,5 +415,5 @@ function getPercentage(count, items) {
                 </div>
             </div>
         </div>
-    </ManagerLayout>
+    </AppLayout>
 </template>

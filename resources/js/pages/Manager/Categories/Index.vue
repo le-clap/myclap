@@ -1,6 +1,6 @@
 <script setup>
 import {Head, Link} from '@inertiajs/vue3'
-import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 
 defineProps({
     categories: {
@@ -12,7 +12,7 @@ defineProps({
 
 <template>
     <Head title="Catégories"/>
-    <ManagerLayout leftbar-active="categories">
+    <AppLayout section="manager" leftbar-active="categories">
         <div class="w-full">
             <div class="flex items-center justify-between mb-6">
                 <h1 class="text-3xl font-bebas tracking-wide">Catégories</h1>
@@ -51,5 +51,5 @@ defineProps({
                 <p>Aucune catégorie</p>
             </div>
         </div>
-    </ManagerLayout>
+    </AppLayout>
 </template>

@@ -1,6 +1,6 @@
 <script setup>
 import {Head, router} from '@inertiajs/vue3'
-import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 import VideoUploader from '@/Components/VideoUploader.vue'
 
 const props = defineProps({
@@ -21,7 +21,7 @@ function onUploadComplete() {
 
 <template>
     <Head title="Mise en ligne"/>
-    <ManagerLayout leftbar-active="videos">
+    <AppLayout section="manager" leftbar-active="videos">
         <div class="w-full">
             <h1 class="text-2xl font-bold mb-2">Envoyer la vidéo</h1>
             <p class="text-gray-400 mb-6">{{ video.name }}</p>
@@ -41,5 +41,5 @@ function onUploadComplete() {
                 </button>
             </div>
         </div>
-    </ManagerLayout>
+    </AppLayout>
 </template>

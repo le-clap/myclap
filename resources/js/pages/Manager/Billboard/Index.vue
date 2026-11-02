@@ -1,6 +1,6 @@
 <script setup>
 import {Head, Link, useForm} from '@inertiajs/vue3'
-import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 
 const props = defineProps({
     billboards: {
@@ -29,7 +29,7 @@ function getGradientStyle(color) {
 
 <template>
     <Head title="Présentation"/>
-    <ManagerLayout leftbar-active="design">
+    <AppLayout section="manager" leftbar-active="design">
         <div class="w-full">
             <div class="flex items-center justify-between mb-6">
                 <div>
@@ -108,5 +108,5 @@ function getGradientStyle(color) {
                 <p>Aucune annonce créée</p>
             </div>
         </div>
-    </ManagerLayout>
+    </AppLayout>
 </template>

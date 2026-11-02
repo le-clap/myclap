@@ -1,7 +1,7 @@
 <script setup>
 import {computed, reactive, watch} from 'vue'
 import {Head, Link, router} from '@inertiajs/vue3'
-import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 import {formatDuration} from '@/utils/date'
 import {formatBitrate, formatFileSize, getDisplayStatus} from '@/utils/video'
 
@@ -122,7 +122,7 @@ function toggleSortDirection() {
 
 <template>
     <Head title="Vidéos"/>
-    <ManagerLayout leftbar-active="videos">
+    <AppLayout section="manager" leftbar-active="videos">
         <div class="w-full">
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
                 <h1 class="text-3xl font-bebas tracking-wide">Vidéos</h1>
@@ -275,5 +275,5 @@ function toggleSortDirection() {
                 </button>
             </div>
         </div>
-    </ManagerLayout>
+    </AppLayout>
 </template>

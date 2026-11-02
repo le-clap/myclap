@@ -1,7 +1,7 @@
 <script setup>
 import {Head, Link} from '@inertiajs/vue3'
 import {computed, ref, watch} from 'vue'
-import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 import axios from 'axios'
 
 const props = defineProps({
@@ -60,7 +60,7 @@ async function movePlaylist(index, direction) {
 
 <template>
     <Head title="Playlists"/>
-    <ManagerLayout leftbar-active="playlists">
+    <AppLayout section="manager" leftbar-active="playlists">
         <div class="w-full">
             <div class="flex items-center justify-between mb-6">
                 <h1 class="text-3xl font-bebas tracking-wide">Playlists</h1>
@@ -130,5 +130,5 @@ async function movePlaylist(index, direction) {
                 <p>Aucune playlist</p>
             </div>
         </div>
-    </ManagerLayout>
+    </AppLayout>
 </template>

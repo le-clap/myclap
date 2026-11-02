@@ -1,7 +1,7 @@
 <script setup>
 import {computed, reactive, watch} from 'vue'
 import {Head, Link, router, usePoll} from '@inertiajs/vue3'
-import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 import {formatDateTime, formatDuration} from '@/utils/date'
 import {TRANSCODE_STATUS_CLASS} from '@/utils/video'
 
@@ -84,7 +84,7 @@ const showEmptyCheck = computed(() => !localFilters.q && ['processing', 'failed'
 
 <template>
     <Head title="Transcodage"/>
-    <ManagerLayout leftbar-active="transcode">
+    <AppLayout section="manager" leftbar-active="transcode">
         <div class="w-full">
             <div class="mb-6">
                 <h1 class="text-3xl font-bebas tracking-wide">Transcodage</h1>
@@ -230,5 +230,5 @@ const showEmptyCheck = computed(() => !localFilters.q && ['processing', 'failed'
                 </component>
             </nav>
         </div>
-    </ManagerLayout>
+    </AppLayout>
 </template>
