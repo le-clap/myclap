@@ -3,167 +3,88 @@
 namespace App\Http\Controllers\Manager;
 
 use App\Http\Controllers\Controller;
+use App\Models\Billboard;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class BillboardController extends Controller
 {
-    private const STORAGE_FILE = 'billboard.json';
-
     private const MAX_BILLBOARDS = 5;
 
-    public function index(Request $request)
-    {
-        $billboards = $this->getBillboards();
+    private const COLOR_OPTIONS = [
+        ['value' => 'gradient-dark-red', 'label' => 'Rouge'],
+        ['value' => 'gradient-calm-darya', 'label' => 'Bleu/Violet'],
+        ['value' => 'gradient-purple-dream', 'label' => 'Violet'],
+        ['value' => 'gradient-sexy-blue', 'label' => 'Bleu'],
+        ['value' => 'gradient-emerald-water', 'label' => 'Vert/Bleu'],
+    ];
 
+    public function index(): Response
+    {
         return Inertia::render('Manager/Billboard/Index', [
-            'billboards' => $billboards,
+            'billboards' => Billboard::orderBy('id')->get(),
         ]);
     }
 
-    public function create(Request $request)
+    public function create(): Response|RedirectResponse
     {
-        $billboards = $this->getBillboards();
-
-        if (count($billboards) >= self::MAX_BILLBOARDS) {
+        if (Billboard::count() >= self::MAX_BILLBOARDS) {
             return redirect()->route('manager.billboard.index')
                 ->with('error', 'Maximum 5 annonces autorisées');
         }
 
-        $colorOptions = [
-            ['value' => 'gradient-dark-red', 'label' => 'Rouge'],
-            ['value' => 'gradient-calm-darya', 'label' => 'Bleu/Violet'],
-            ['value' => 'gradient-purple-dream', 'label' => 'Violet'],
-            ['value' => 'gradient-sexy-blue', 'label' => 'Bleu'],
-            ['value' => 'gradient-emerald-water', 'label' => 'Vert/Bleu'],
-        ];
-
         return Inertia::render('Manager/Billboard/Create', [
-            'colorOptions' => $colorOptions,
+            'colorOptions' => self::COLOR_OPTIONS,
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:60',
-            'button' => 'required|string|max:30',
-            'url' => ['required', 'string', 'max:255', 'regex:#^(https?://|/)#i'],
-            'icon' => 'nullable|string|max:30',
-            'color' => 'required|string',
-        ]);
+        $validated = $request->validate($this->rules());
 
-        $billboards = $this->getBillboards();
-
-        if (count($billboards) >= self::MAX_BILLBOARDS) {
+        if (Billboard::count() >= self::MAX_BILLBOARDS) {
             return back()->withErrors(['error' => 'Maximum 5 annonces autorisées']);
         }
 
-        $identifier = Str::random(20);
-        while (collect($billboards)->contains('identifier', $identifier)) {
-            $identifier = Str::random(20);
-        }
-
-        $billboards[] = [
-            'identifier' => $identifier,
-            'title' => $validated['title'],
-            'button' => $validated['button'],
-            'url' => $validated['url'],
-            'icon' => $validated['icon'] ?? '',
-            'color' => $validated['color'],
-        ];
-
-        $this->saveBillboards($billboards);
+        Billboard::create($validated);
 
         return redirect()->route('manager.billboard.index')
             ->with('success', 'Annonce créée');
     }
 
-    public function edit(Request $request, string $identifier)
+    public function edit(Billboard $billboard): Response
     {
-        $billboards = $this->getBillboards();
-        $billboard = collect($billboards)->firstWhere('identifier', $identifier);
-
-        if (! $billboard) {
-            abort(404);
-        }
-
-        $colorOptions = [
-            ['value' => 'gradient-dark-red', 'label' => 'Rouge'],
-            ['value' => 'gradient-calm-darya', 'label' => 'Bleu/Violet'],
-            ['value' => 'gradient-purple-dream', 'label' => 'Violet'],
-            ['value' => 'gradient-sexy-blue', 'label' => 'Bleu'],
-            ['value' => 'gradient-emerald-water', 'label' => 'Vert/Bleu'],
-        ];
-
         return Inertia::render('Manager/Billboard/Edit', [
             'billboard' => $billboard,
-            'colorOptions' => $colorOptions,
+            'colorOptions' => self::COLOR_OPTIONS,
         ]);
     }
 
-    public function update(Request $request, string $identifier)
+    public function update(Request $request, Billboard $billboard): RedirectResponse
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:60',
-            'button' => 'required|string|max:30',
-            'url' => ['required', 'string', 'max:255', 'regex:#^(https?://|/)#i'],
-            'icon' => 'nullable|string|max:30',
-            'color' => 'required|string',
-        ]);
-
-        $billboards = $this->getBillboards();
-        $found = false;
-
-        foreach ($billboards as &$billboard) {
-            if ($billboard['identifier'] === $identifier) {
-                $billboard['title'] = $validated['title'];
-                $billboard['button'] = $validated['button'];
-                $billboard['url'] = $validated['url'];
-                $billboard['icon'] = $validated['icon'] ?? '';
-                $billboard['color'] = $validated['color'];
-                $found = true;
-                break;
-            }
-        }
-
-        if (! $found) {
-            abort(404);
-        }
-
-        $this->saveBillboards($billboards);
+        $billboard->update($request->validate($this->rules()));
 
         return redirect()->route('manager.billboard.index')->with('success', 'Annonce modifiée');
     }
 
-    public function destroy(Request $request, string $identifier)
+    public function destroy(Billboard $billboard): RedirectResponse
     {
-        $billboards = $this->getBillboards();
-        $billboards = array_values(array_filter($billboards, function ($b) use ($identifier) {
-            return $b['identifier'] !== $identifier;
-        }));
-
-        $this->saveBillboards($billboards);
+        $billboard->delete();
 
         return redirect()->route('manager.billboard.index')
             ->with('success', 'Annonce supprimée');
     }
 
-    private function getBillboards(): array
+    private function rules(): array
     {
-        if (! Storage::disk('local')->exists(self::STORAGE_FILE)) {
-            return [];
-        }
-
-        $content = Storage::disk('local')->get(self::STORAGE_FILE);
-
-        return json_decode($content, true) ?? [];
-    }
-
-    private function saveBillboards(array $billboards): void
-    {
-        Storage::disk('local')->put(self::STORAGE_FILE, json_encode($billboards, JSON_PRETTY_PRINT));
+        return [
+            'title' => 'required|string|max:60',
+            'button' => 'required|string|max:30',
+            'url' => ['required', 'string', 'max:255', 'regex:#^(https?://|/)#i'],
+            'icon' => 'nullable|string|max:30',
+            'color' => 'required|string',
+        ];
     }
 }

@@ -93,7 +93,7 @@ function billboardHref(url) {
                 <div class="relative">
                     <a
                         v-for="(billboard, index) in billboards"
-                        :key="billboard.identifier"
+                        :key="billboard.id"
                         :href="billboardHref(billboard.url)"
                         :class="[
                             'block rounded-lg p-8 md:p-12 text-center transition-opacity duration-500',

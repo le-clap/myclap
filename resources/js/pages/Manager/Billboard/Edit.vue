@@ -22,7 +22,7 @@ const form = useForm({
 })
 
 function submit() {
-    form.put(`/manager/presentation/${props.billboard.identifier}`)
+    form.put(`/manager/presentation/${props.billboard.id}`)
 }
 
 function getGradientStyle(color) {

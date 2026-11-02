@@ -4,12 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Enums\ContentAccess;
 use App\Enums\UploadStatus;
+use App\Models\Billboard;
 use App\Models\Category;
 use App\Models\Playlist;
 use App\Models\Video;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class HomeController extends Controller
@@ -24,15 +24,9 @@ class HomeController extends Controller
             ->limit(12)
             ->get();
 
-        $billboards = [];
-        if (Storage::disk('local')->exists('billboard.json')) {
-            $content = Storage::disk('local')->get('billboard.json');
-            $billboards = json_decode($content, true) ?? [];
-        }
-
         return Inertia::render('Home/Index', [
             'videos' => $videos,
-            'billboards' => $billboards,
+            'billboards' => Billboard::orderBy('id')->get(),
         ]);
     }
 
