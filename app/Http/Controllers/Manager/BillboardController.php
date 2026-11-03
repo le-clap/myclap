@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Billboard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -84,7 +85,7 @@ class BillboardController extends Controller
             'button' => 'required|string|max:30',
             'url' => ['required', 'string', 'max:255', 'regex:#^(https?://|/)#i'],
             'icon' => 'nullable|string|max:30',
-            'color' => 'required|string',
+            'color' => ['required', Rule::in(array_column(self::COLOR_OPTIONS, 'value'))],
         ];
     }
 }

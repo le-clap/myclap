@@ -13,5 +13,5 @@ export function usePermissions() {
     /** For nav items: `{permission}` and `{group}` are optional requirements. */
     const allows = ({permission, group}) => (!permission || can(permission)) && (!group || canGroup(group))
 
-    return {can, canGroup, allows}
+    return {allows}
 }
