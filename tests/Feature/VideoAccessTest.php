@@ -87,8 +87,7 @@ class VideoAccessTest extends TestCase
 
         $this->get("/regarder/{$public->token}")
             ->assertSee('property="og:title" content="Public clip"', false)
-            ->assertSee('property="og:image"', false)
-            ->assertSee('property="og:video"', false);
+            ->assertSee('property="og:image"', false);
         $this->get("/regarder/{$private->token}")->assertDontSee('og:title', false);
     }
 

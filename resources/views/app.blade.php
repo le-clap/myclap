@@ -12,10 +12,10 @@
     @isset($meta)
         <meta property="og:type" content="video.other">
         <meta property="og:title" content="{{ $meta['title'] }}">
-        <meta property="og:description" content="{{ \Illuminate\Support\Str::limit(strip_tags((string) $meta['description']), 200) }}">
+        @if (filled($meta['description']))
+            <meta property="og:description" content="{{ \Illuminate\Support\Str::limit(strip_tags((string) $meta['description']), 200) }}">
+        @endif
         <meta property="og:image" content="{{ $meta['image'] }}">
-        <meta property="og:video" content="{{ $meta['video'] }}">
-        <meta property="og:video:type" content="video/mp4">
     @endisset
 
     @vite(['resources/js/app.js'])

@@ -89,7 +89,6 @@ class WatchController extends Controller
             'title' => $video->name,
             'description' => $video->description,
             'image' => $video->thumbnail_url,
-            'video' => $video->video_url,
         ];
     }
 

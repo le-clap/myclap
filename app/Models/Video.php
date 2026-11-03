@@ -194,13 +194,13 @@ class Video extends Model
     {
         return Attribute::make(
             get: fn () => route('watch.media.thumbnail', ['video' => $this->token, 'size' => 1080])
-                .$this->versionQuery($this->thumbnail_identifier)
+                .$this->versionQuery($this->thumbnail_identifier, '&')
         );
     }
 
     protected function thumbnailUrls(): Attribute
     {
-        $version = $this->versionQuery($this->thumbnail_identifier);
+        $version = $this->versionQuery($this->thumbnail_identifier, '&');
 
         return Attribute::make(get: fn () => [
             '1080' => route('watch.media.thumbnail', ['video' => $this->token, 'size' => 1080]).$version,
@@ -221,13 +221,13 @@ class Video extends Model
      * Appending a fingerprint of the current file identifier
      * makes the URL itself change whenever the content does, forcing a fresh fetch.
      */
-    private function versionQuery(?string $identifier): string
+    private function versionQuery(?string $identifier, string $separator = '?'): string
     {
         if ($identifier === null) {
             return '';
         }
 
-        return '?v='.self::version($identifier);
+        return $separator.'v='.self::version($identifier);
     }
 
     public static function version(string $identifier): string
