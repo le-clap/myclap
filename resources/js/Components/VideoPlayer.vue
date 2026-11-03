@@ -1,6 +1,7 @@
 <script setup>
 import {onMounted, onUnmounted, ref} from 'vue'
-import Plyr from 'plyr'
+import '@videojs/html/video/player'
+import '@videojs/html/video/neutral-skin'
 import axios from 'axios'
 
 const props = defineProps({
@@ -15,7 +16,6 @@ const props = defineProps({
 })
 
 const playerElement = ref(null)
-let player = null
 let playbackSid = null
 let updateInterval = null
 let trackingInitialized = false
@@ -56,9 +56,10 @@ function detectOS() {
 }
 
 function getWatchTime() {
-    if (!player) return null
+    const media = playerElement.value
+    if (!media) return null
 
-    return {watch_time: player.currentTime || 0}
+    return {watch_time: media.currentTime || 0}
 }
 
 async function sendMetricsUpdate() {
@@ -123,88 +124,47 @@ function reloadAfterFileSwap() {
 onMounted(() => {
     playerElement.value.addEventListener('error', reloadAfterFileSwap)
 
-    player = new Plyr(playerElement.value, {
-        controls: [
-            'play-large',
-            'play',
-            'progress',
-            'current-time',
-            'mute',
-            'volume',
-            'settings',
-            'pip',
-            'fullscreen'
-        ],
-        settings: ['quality', 'speed'],
-    })
-
-    player.on('play', () => {
+    playerElement.value.addEventListener('play', () => {
         pausedByViewer = false
         initTracking()
     })
-
-    player.on('pause', () => {
+    playerElement.value.addEventListener('pause', () => {
         pausedByViewer = true
     })
-
-    player.on('ended', () => {
-        sendMetricsUpdate()
-    })
+    playerElement.value.addEventListener('ended', sendMetricsUpdate)
 })
 
 onUnmounted(() => {
     if (updateInterval) {
         clearInterval(updateInterval)
     }
-
-    if (player) {
-        player.destroy()
-    }
 })
 </script>
 
 <template>
     <div class="video-player w-full">
-        <video
-            ref="playerElement"
-            :poster="video.thumbnail_url"
-            controls
-            class="w-full rounded-lg"
-        >
-            <source :src="video.video_url" type="video/mp4" @error="reloadAfterFileSwap">
-            Votre navigateur ne supporte pas la lecture de vidéos.
-        </video>
+        <video-player>
+            <video-neutral-skin>
+                <video ref="playerElement" :poster="video.thumbnail_url" playsinline>
+                    <source :src="video.video_url" type="video/mp4" @error="reloadAfterFileSwap">
+                    Votre navigateur ne supporte pas la lecture de vidéos.
+                </video>
+            </video-neutral-skin>
+        </video-player>
     </div>
 </template>
 
 <style>
-@import 'plyr/dist/plyr.css';
+video-player {
+    --media-accent-color: #ff0502;
+    --media-border-radius: 0.5rem;
+}
 
-.plyr--video {
+video-compat-skin {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
     border-radius: 0.5rem;
     overflow: hidden;
-}
-
-.plyr--full-ui input[type=range] {
-    color: #ff0502;
-}
-
-.plyr--video .plyr__control.plyr__tab-focus,
-.plyr--video .plyr__control:hover,
-.plyr--video .plyr__control[aria-expanded=true] {
-    background: #ff0502;
-}
-
-.plyr__control--overlaid {
-    background: rgba(255, 5, 2, 0.8);
-}
-
-.plyr__control--overlaid:hover,
-.plyr__control--overlaid:focus {
-    background: #ff0502;
-}
-
-.plyr--video .plyr__progress__buffer {
-    color: rgba(255, 255, 255, 0.25);
 }
 </style>
