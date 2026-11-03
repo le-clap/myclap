@@ -7,13 +7,11 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Billboards used to live in storage/app/private/billboard.json. Import them,
- * keeping their order. The file is left in place as a backup: nothing reads it
- * anymore, and rolling back restores the state from before this migration.
+ * Billboards used to live in storage/app/private/billboard.json.
  */
 return new class extends Migration
 {
-    private const LEGACY_FILE = 'billboard.json';
+    private const string LEGACY_FILE = 'billboard.json';
 
     public function up(): void
     {

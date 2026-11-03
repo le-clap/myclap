@@ -20,7 +20,6 @@ class BillboardTest extends TestCase
     {
         parent::setUp();
 
-        // The migration imports any real storage/app/private/billboard.json on this machine.
         Billboard::query()->delete();
         $this->manager = User::factory()->withPermissions('manager.design')->create();
     }
@@ -28,7 +27,7 @@ class BillboardTest extends TestCase
     private function fields(array $overrides = []): array
     {
         return [
-            'title' => 'Soirée projection',
+            'title' => 'Soirée JT au foyer',
             'button' => 'Voir',
             'url' => 'https://le-clap.fr',
             'icon' => 'fa-star',
