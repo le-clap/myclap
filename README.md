@@ -292,6 +292,15 @@ erDiagram
         timestamp created_on
     }
 
+    billboard {
+        bigint id PK
+        string title
+        string button
+        string url
+        string icon
+        string color
+    }
+
     clap_user ||--o{ category: creates
     clap_user ||--o{ playlist: modifies
     clap_user ||--o{ video: uploads
