@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_on
  * @property Carbon $uploaded_on
  * @property-read string $thumbnail_url
+ * @property-read string $video_url
  */
 class Video extends Model
 {

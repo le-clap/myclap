@@ -80,6 +80,18 @@ class VideoAccessTest extends TestCase
         $this->actingAsViewer($who)->get("/media/{$video->token}/download")->assertStatus($status);
     }
 
+    public function test_link_preview_meta_only_for_crawler_fetchable_videos(): void
+    {
+        $public = Video::factory()->access(ContentAccess::PUBLIC)->create(['name' => 'Public clip']);
+        $private = Video::factory()->access(ContentAccess::PRIVATE)->create(['name' => 'Secret clip']);
+
+        $this->get("/regarder/{$public->token}")
+            ->assertSee('property="og:title" content="Public clip"', false)
+            ->assertSee('property="og:image"', false)
+            ->assertSee('property="og:video"', false);
+        $this->get("/regarder/{$private->token}")->assertDontSee('og:title', false);
+    }
+
     public function test_unpublished_video_is_not_found(): void
     {
         $video = Video::factory()->create(['upload_status' => UploadStatus::UPLOAD_INIT]);
