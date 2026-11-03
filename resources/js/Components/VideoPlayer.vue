@@ -3,6 +3,7 @@ import {onMounted, onUnmounted, ref} from 'vue'
 import '@videojs/html/video/player'
 import '@videojs/html/video/neutral-skin'
 import axios from 'axios'
+import {chaptersToVtt, parseChapters} from '@/utils/chapters'
 
 const props = defineProps({
     video: {
@@ -116,12 +117,40 @@ function reloadAfterFileSwap() {
 
     media.addEventListener('loadedmetadata', () => {
         media.currentTime = time
-        if (wasPlaying) media.play().catch(() => {})
+        if (wasPlaying) media.play().catch(() => {
+        })
     }, {once: true})
     media.src = url.toString()
 }
 
+function addChapters() {
+    const media = playerElement.value
+    const chapters = parseChapters(props.video.description)
+    if (!chapters.length || !isFinite(media.duration)) return
+
+    const track = document.createElement('track')
+    track.kind = 'chapters'
+    track.label = 'Chapitres'
+    track.default = true
+    track.src = URL.createObjectURL(new Blob([chaptersToVtt(chapters, media.duration)], {type: 'text/vtt'}))
+    media.appendChild(track)
+}
+
+function seekTo(seconds) {
+    const media = playerElement.value
+    media.currentTime = seconds
+    media.play().catch(() => {
+    })
+}
+
+defineExpose({seekTo})
+
 onMounted(() => {
+    if (playerElement.value.readyState >= 1) {
+        addChapters()
+    } else {
+        playerElement.value.addEventListener('loadedmetadata', addChapters, {once: true})
+    }
     playerElement.value.addEventListener('error', reloadAfterFileSwap)
 
     playerElement.value.addEventListener('play', () => {
@@ -163,8 +192,12 @@ video-player {
 video-compat-skin {
     display: block;
     width: 100%;
-    aspect-ratio: 16 / 9;
     border-radius: 0.5rem;
     overflow: hidden;
+}
+
+video-compat-skin video {
+    aspect-ratio: auto;
+    max-height: 80vh;
 }
 </style>
