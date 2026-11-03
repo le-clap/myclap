@@ -1,6 +1,6 @@
 <script setup>
 import {Head, Link, useForm} from '@inertiajs/vue3'
-import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 
 const props = defineProps({
     billboards: {
@@ -9,9 +9,9 @@ const props = defineProps({
     }
 })
 
-function deleteBillboard(identifier) {
+function deleteBillboard(id) {
     if (confirm('Êtes-vous sûr de vouloir supprimer cette annonce ?')) {
-        useForm({}).delete(`/manager/presentation/${identifier}`)
+        useForm({}).delete(`/manager/presentation/${id}`)
     }
 }
 
@@ -29,7 +29,7 @@ function getGradientStyle(color) {
 
 <template>
     <Head title="Présentation"/>
-    <ManagerLayout leftbar-active="design">
+    <AppLayout section="manager" leftbar-active="design">
         <div class="w-full">
             <div class="flex items-center justify-between mb-6">
                 <div>
@@ -62,20 +62,20 @@ function getGradientStyle(color) {
             <div v-if="billboards.length > 0" class="space-y-4">
                 <div
                     v-for="(billboard, index) in billboards"
-                    :key="billboard.identifier"
+                    :key="billboard.id"
                     class="bg-dark-surface rounded-lg p-6"
                 >
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="font-bold">Annonce #{{ index + 1 }}</h3>
                         <div class="flex gap-2">
                             <Link
-                                :href="`/manager/presentation/${billboard.identifier}`"
+                                :href="`/manager/presentation/${billboard.id}`"
                                 class="px-3 py-1 bg-dark-border hover:bg-[#3a3a3a] rounded transition-colors text-sm"
                             >
                                 Modifier
                             </Link>
                             <button
-                                @click="deleteBillboard(billboard.identifier)"
+                                @click="deleteBillboard(billboard.id)"
                                 class="px-3 py-1 bg-red-600 hover:bg-red-700 rounded transition-colors text-sm"
                             >
                                 Supprimer
@@ -108,5 +108,5 @@ function getGradientStyle(color) {
                 <p>Aucune annonce créée</p>
             </div>
         </div>
-    </ManagerLayout>
+    </AppLayout>
 </template>

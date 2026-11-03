@@ -1,6 +1,6 @@
 <script setup>
 import {Head, Link} from '@inertiajs/vue3'
-import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 
 defineProps({
     stats: {
@@ -16,7 +16,7 @@ defineProps({
 
 <template>
     <Head title="Manager"/>
-    <ManagerLayout leftbar-active="dashboard">
+    <AppLayout section="manager" leftbar-active="dashboard">
         <div class="w-full space-y-6">
             <h1 class="text-3xl font-bebas tracking-wide">Dashboard</h1>
 
@@ -110,5 +110,5 @@ defineProps({
                 </div>
             </div>
         </div>
-    </ManagerLayout>
+    </AppLayout>
 </template>

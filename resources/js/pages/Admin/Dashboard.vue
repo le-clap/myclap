@@ -1,11 +1,11 @@
 <script setup>
 import {Head, Link} from '@inertiajs/vue3'
-import AdminLayout from '@/Components/Layout/AdminLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 </script>
 
 <template>
     <Head title="Admin - Dashboard"/>
-    <AdminLayout leftbar-active="dashboard">
+    <AppLayout section="admin" leftbar-active="dashboard">
         <div class="w-full">
             <h1 class="text-3xl font-bebas tracking-wide mb-6">Administration myCLAP</h1>
 
@@ -50,5 +50,5 @@ import AdminLayout from '@/Components/Layout/AdminLayout.vue'
                 </Link>
             </div>
         </div>
-    </AdminLayout>
+    </AppLayout>
 </template>

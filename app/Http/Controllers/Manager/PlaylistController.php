@@ -7,13 +7,17 @@ use App\Enums\PlaylistType;
 use App\Http\Controllers\Controller;
 use App\Models\Playlist;
 use App\Models\Video;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class PlaylistController extends Controller
 {
-    public function index()
+    public function index(): Response
     {
         $playlists = Playlist::withCount('videos')
             ->orderedForDisplay()
@@ -24,7 +28,7 @@ class PlaylistController extends Controller
         ]);
     }
 
-    public function create()
+    public function create(): Response
     {
         return Inertia::render('Manager/Playlists/Create', [
             'typeOptions' => PlaylistType::options(),
@@ -32,7 +36,7 @@ class PlaylistController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'name' => 'required|string|max:75',
@@ -71,7 +75,7 @@ class PlaylistController extends Controller
             ->with('success', 'La playlist a été créée avec succès');
     }
 
-    public function edit(Playlist $playlist)
+    public function edit(Playlist $playlist): Response
     {
         // Get the videos in order via relationship
         $playlistVideos = $playlist->videos()->get();
@@ -84,7 +88,7 @@ class PlaylistController extends Controller
         ]);
     }
 
-    public function update(Request $request, Playlist $playlist)
+    public function update(Request $request, Playlist $playlist): RedirectResponse
     {
         $validated = $request->validate([
             'name' => 'required|string|max:75',
@@ -127,7 +131,7 @@ class PlaylistController extends Controller
         return back()->with('success', 'Les changements ont bien été sauvegardés');
     }
 
-    public function destroy(Playlist $playlist)
+    public function destroy(Playlist $playlist): RedirectResponse
     {
         $playlist->delete();
 
@@ -135,7 +139,7 @@ class PlaylistController extends Controller
             ->with('success', 'La playlist a bien été supprimée');
     }
 
-    public function move(Request $request, Playlist $playlist)
+    public function move(Request $request, Playlist $playlist): HttpResponse
     {
         $validated = $request->validate([
             'direction' => 'required|string|in:up,down',
@@ -152,7 +156,7 @@ class PlaylistController extends Controller
         return response()->noContent();
     }
 
-    public function searchVideos(Request $request)
+    public function searchVideos(Request $request): JsonResponse
     {
         $query = $request->query('q', '');
         $limit = max(0, min((int) $request->query('limit', 5), 20));

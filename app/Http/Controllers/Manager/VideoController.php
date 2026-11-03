@@ -12,10 +12,12 @@ use App\Models\Playlist;
 use App\Models\Video;
 use App\Services\ThumbnailService;
 use App\Services\VideoUploadService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class VideoController extends Controller
 {
@@ -24,7 +26,7 @@ class VideoController extends Controller
         private readonly VideoUploadService $uploadService
     ) {}
 
-    public function index(Request $request)
+    public function index(Request $request): Response
     {
         $validated = $request->validate([
             'q' => 'nullable|string|max:100',
@@ -89,7 +91,7 @@ class VideoController extends Controller
         ]);
     }
 
-    public function create(Request $request)
+    public function create(Request $request): Response
     {
         $user = $request->user();
 
@@ -111,7 +113,7 @@ class VideoController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
         $user = $request->user();
 
@@ -176,7 +178,7 @@ class VideoController extends Controller
             ->with('success', 'Vidéo créée. Vous pouvez maintenant envoyer le fichier vidéo.');
     }
 
-    public function edit(Request $request, Video $video)
+    public function edit(Request $request, Video $video): Response
     {
         $this->authorize('update', $video);
 
@@ -190,7 +192,7 @@ class VideoController extends Controller
         ]);
     }
 
-    public function update(Request $request, Video $video)
+    public function update(Request $request, Video $video): RedirectResponse
     {
         $this->authorize('update', $video);
 
@@ -231,7 +233,7 @@ class VideoController extends Controller
         return back()->with('success', 'Les changements ont bien été sauvegardés !');
     }
 
-    public function upload(Request $request, Video $video)
+    public function upload(Request $request, Video $video): Response|RedirectResponse
     {
         $this->authorize('update', $video);
 
@@ -250,7 +252,7 @@ class VideoController extends Controller
         ]);
     }
 
-    public function transcode(Request $request, Video $video)
+    public function transcode(Request $request, Video $video): RedirectResponse
     {
         $this->authorize('update', $video);
 
@@ -276,7 +278,7 @@ class VideoController extends Controller
         return back()->with('success', 'Vérification lancée.');
     }
 
-    public function destroy(Request $request, Video $video)
+    public function destroy(Request $request, Video $video): RedirectResponse
     {
         $this->authorize('delete', $video);
 

@@ -1,7 +1,7 @@
 <script setup>
 import {Head, router, useForm} from '@inertiajs/vue3'
 import {onBeforeUnmount, onMounted, ref} from 'vue'
-import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 import axios from 'axios'
 
 const props = defineProps({
@@ -124,7 +124,7 @@ onBeforeUnmount(() => {
 
 <template>
     <Head :title="`Modifier '${playlist.name}'`"/>
-    <ManagerLayout leftbar-active="playlists">
+    <AppLayout section="manager" leftbar-active="playlists">
         <div class="w-full">
             <h1 class="text-2xl font-bold mb-6">Modifier la playlist</h1>
 
@@ -269,5 +269,5 @@ onBeforeUnmount(() => {
                 </button>
             </div>
         </div>
-    </ManagerLayout>
+    </AppLayout>
 </template>

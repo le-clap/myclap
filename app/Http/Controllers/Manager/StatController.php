@@ -7,10 +7,11 @@ use App\Models\Video;
 use App\Models\VideoView;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class StatController extends Controller
 {
-    public function index()
+    public function index(): Response
     {
         $totalViews = Video::sum('views');
         $totalReactions = Video::sum('reactions');
@@ -89,7 +90,7 @@ class StatController extends Controller
         ]);
     }
 
-    public function video(Video $video)
+    public function video(Video $video): Response
     {
 
         $viewsData = VideoView::select(

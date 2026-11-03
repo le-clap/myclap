@@ -116,12 +116,12 @@ Route::prefix('manager')->name('manager.')->middleware(['auth', 'permission_grou
     Route::middleware('permission:manager.design')->group(function () {
         Route::get('/presentation', [BillboardController::class, 'index'])->name('billboard.index');
         Route::get('/presentation/ajouter', [BillboardController::class, 'create'])->name('billboard.create');
-        Route::get('/presentation/{identifier}', [BillboardController::class, 'edit'])->name('billboard.edit');
+        Route::get('/presentation/{billboard}', [BillboardController::class, 'edit'])->name('billboard.edit')->whereNumber('billboard');
 
         // Billboard / Presentation API
         Route::post('/presentation', [BillboardController::class, 'store'])->name('billboard.store');
-        Route::put('/presentation/{identifier}', [BillboardController::class, 'update'])->name('billboard.update');
-        Route::delete('/presentation/{identifier}', [BillboardController::class, 'destroy'])->name('billboard.destroy');
+        Route::put('/presentation/{billboard}', [BillboardController::class, 'update'])->name('billboard.update')->whereNumber('billboard');
+        Route::delete('/presentation/{billboard}', [BillboardController::class, 'destroy'])->name('billboard.destroy')->whereNumber('billboard');
     });
 });
 

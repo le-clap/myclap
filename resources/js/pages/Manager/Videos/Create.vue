@@ -1,6 +1,6 @@
 <script setup>
 import {Head, router, useForm} from '@inertiajs/vue3'
-import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 
 const props = defineProps({
     categories: {
@@ -45,7 +45,7 @@ function toggleCategory(slug) {
 
 <template>
     <Head title="Ajouter une vidéo"/>
-    <ManagerLayout leftbar-active="videos">
+    <AppLayout section="manager" leftbar-active="videos">
         <div class="w-full">
             <h1 class="text-2xl font-bold mb-6">Ajouter une vidéo</h1>
 
@@ -173,5 +173,5 @@ function toggleCategory(slug) {
                 </div>
             </form>
         </div>
-    </ManagerLayout>
+    </AppLayout>
 </template>

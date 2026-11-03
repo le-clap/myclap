@@ -1,7 +1,7 @@
 <script setup>
 import {computed} from 'vue'
 import {Head, Link, router, useForm} from '@inertiajs/vue3'
-import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 import {formatDuration} from '@/utils/date'
 import {formatBitrate, formatFileSize, getDisplayStatus} from '@/utils/video'
 
@@ -85,7 +85,7 @@ function recheckTranscode() {
 
 <template>
     <Head :title="`Modifier '${video.name}'`"/>
-    <ManagerLayout leftbar-active="videos">
+    <AppLayout section="manager" leftbar-active="videos">
         <div class="w-full">
             <div class="flex items-center justify-between mb-6">
                 <h1 class="text-2xl font-bold">Modifier la vidéo</h1>
@@ -267,5 +267,5 @@ function recheckTranscode() {
                 </button>
             </div>
         </div>
-    </ManagerLayout>
+    </AppLayout>
 </template>

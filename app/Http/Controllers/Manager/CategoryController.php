@@ -4,13 +4,15 @@ namespace App\Http\Controllers\Manager;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class CategoryController extends Controller
 {
-    public function index()
+    public function index(): Response
     {
         $categories = Category::orderBy('label')->get();
 
@@ -19,12 +21,12 @@ class CategoryController extends Controller
         ]);
     }
 
-    public function create()
+    public function create(): Response
     {
         return Inertia::render('Manager/Categories/Create');
     }
 
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'label' => 'required|string|max:75',
@@ -51,14 +53,14 @@ class CategoryController extends Controller
             ->with('success', 'La catégorie a été créée avec succès');
     }
 
-    public function edit(Category $category)
+    public function edit(Category $category): Response
     {
         return Inertia::render('Manager/Categories/Edit', [
             'category' => $category,
         ]);
     }
 
-    public function update(Request $request, Category $category)
+    public function update(Request $request, Category $category): RedirectResponse
     {
         $validated = $request->validate([
             'label' => 'required|string|max:75',
@@ -73,7 +75,7 @@ class CategoryController extends Controller
         return back()->with('success', 'Les changements ont bien été sauvegardés');
     }
 
-    public function destroy(Category $category)
+    public function destroy(Category $category): RedirectResponse
     {
         $category->delete();
 

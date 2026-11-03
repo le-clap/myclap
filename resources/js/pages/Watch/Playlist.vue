@@ -1,9 +1,9 @@
 <script setup>
-import {Head, Link, router, usePage} from '@inertiajs/vue3'
-import {computed, ref} from 'vue'
+import {Head, Link} from '@inertiajs/vue3'
+import {computed} from 'vue'
 import AppLayout from '@/Components/Layout/AppLayout.vue'
 import VideoPlayer from '@/Components/VideoPlayer.vue'
-import axios from 'axios'
+import {useReaction} from '@/composables/useReaction'
 
 const props = defineProps({
     playlist: {
@@ -28,35 +28,10 @@ const props = defineProps({
     }
 })
 
-const page = usePage()
-const user = computed(() => page.props.auth.user)
-
-const liked = ref(props.userDidLike)
-const likeCount = ref(props.video.reactions || 0)
-const likeLoading = ref(false)
+const {liked, likeCount, likeLoading, toggleLike} = useReaction(props.video, props.userDidLike)
 
 const prevVideo = computed(() => props.currentIndex > 0 ? props.videos[props.currentIndex - 1] : null)
 const nextVideo = computed(() => props.currentIndex < props.videos.length - 1 ? props.videos[props.currentIndex + 1] : null)
-
-async function toggleLike() {
-    if (!user.value) {
-        router.visit('/login')
-        return
-    }
-
-    if (likeLoading.value) return
-
-    likeLoading.value = true
-    try {
-        const {data} = await axios.post(`/api/reaction/${props.video.token}`)
-        liked.value = data.active
-        likeCount.value += liked.value ? 1 : -1
-    } catch (error) {
-        console.error('Like toggle failed:', error)
-    } finally {
-        likeLoading.value = false
-    }
-}
 </script>
 
 <template>

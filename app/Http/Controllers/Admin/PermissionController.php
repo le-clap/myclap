@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\UserPermission;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class PermissionController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): Response
     {
         $permissionsList = [
             ['identifier' => 'manager.video', 'description' => 'Accès à la gestion des vidéos'],
@@ -26,7 +29,7 @@ class PermissionController extends Controller
         ]);
     }
 
-    public function byIdentifier(Request $request, string $identifier)
+    public function byIdentifier(Request $request, string $identifier): Response
     {
         $permissions = UserPermission::where('identifier', $identifier)->get();
 
@@ -36,7 +39,7 @@ class PermissionController extends Controller
         ]);
     }
 
-    public function byUser(Request $request, string $username)
+    public function byUser(Request $request, string $username): Response
     {
         $targetUser = User::where('username', $username)->firstOrFail();
         $permissions = UserPermission::where('username', $username)->get();
@@ -47,7 +50,7 @@ class PermissionController extends Controller
         ]);
     }
 
-    public function grant(Request $request)
+    public function grant(Request $request): RedirectResponse
     {
         $user = $request->user();
 
@@ -64,7 +67,7 @@ class PermissionController extends Controller
         return back()->with('success', 'Permission accordée');
     }
 
-    public function revoke(Request $request)
+    public function revoke(Request $request): RedirectResponse
     {
         $user = $request->user();
 
@@ -84,7 +87,7 @@ class PermissionController extends Controller
         return back()->with('success', 'Permission révoquée');
     }
 
-    public function searchUsers(Request $request)
+    public function searchUsers(Request $request): JsonResponse
     {
         $query = $request->get('q', '');
         $limit = min($request->get('limit', 10), 50);

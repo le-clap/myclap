@@ -1,10 +1,10 @@
 <script setup>
-import {Head, router, usePage} from '@inertiajs/vue3'
-import {computed, ref} from 'vue'
+import {Head} from '@inertiajs/vue3'
+import {computed} from 'vue'
 import AppLayout from '@/Components/Layout/AppLayout.vue'
 import VideoPlayer from '@/Components/VideoPlayer.vue'
 import {formatDate, parseDay} from '@/utils/date'
-import axios from 'axios'
+import {useReaction} from '@/composables/useReaction'
 
 const props = defineProps({
     video: {
@@ -17,32 +17,7 @@ const props = defineProps({
     }
 })
 
-const page = usePage()
-const user = computed(() => page.props.auth.user)
-
-const liked = ref(props.userDidLike)
-const likeCount = ref(props.video.reactions || 0)
-const likeLoading = ref(false)
-
-async function toggleLike() {
-    if (!user.value) {
-        router.visit('/login')
-        return
-    }
-
-    if (likeLoading.value) return
-
-    likeLoading.value = true
-    try {
-        const {data} = await axios.post(`/api/reaction/${props.video.token}`)
-        liked.value = data.active
-        likeCount.value += liked.value ? 1 : -1
-    } catch (error) {
-        console.error('Like toggle failed:', error)
-    } finally {
-        likeLoading.value = false
-    }
-}
+const {liked, likeCount, likeLoading, toggleLike} = useReaction(props.video, props.userDidLike)
 
 const categories = computed(() => {
     return props.video.categories || []

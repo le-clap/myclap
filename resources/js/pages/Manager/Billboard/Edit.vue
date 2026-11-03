@@ -1,6 +1,6 @@
 <script setup>
 import {Head, Link, useForm} from '@inertiajs/vue3'
-import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 
 const props = defineProps({
     billboard: {
@@ -22,7 +22,7 @@ const form = useForm({
 })
 
 function submit() {
-    form.put(`/manager/presentation/${props.billboard.identifier}`)
+    form.put(`/manager/presentation/${props.billboard.id}`)
 }
 
 function getGradientStyle(color) {
@@ -39,7 +39,7 @@ function getGradientStyle(color) {
 
 <template>
     <Head title="Modifier l'annonce"/>
-    <ManagerLayout leftbar-active="design">
+    <AppLayout section="manager" leftbar-active="design">
         <div class="w-full">
             <div class="flex items-center gap-4 mb-6">
                 <Link href="/manager/presentation" class="text-gray-400 hover:text-white">
@@ -161,5 +161,5 @@ function getGradientStyle(color) {
                 </div>
             </div>
         </div>
-    </ManagerLayout>
+    </AppLayout>
 </template>

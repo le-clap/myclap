@@ -2,7 +2,7 @@
 import {Head, Link, router} from '@inertiajs/vue3'
 import {computed, ref, watch} from 'vue'
 import axios from 'axios'
-import AdminLayout from '@/Components/Layout/AdminLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 
 const props = defineProps({
     permissions: {
@@ -60,7 +60,7 @@ function goToUser(username) {
 
 <template>
     <Head title="Admin - Permissions"/>
-    <AdminLayout leftbar-active="permissions">
+    <AppLayout section="admin" leftbar-active="permissions">
         <div class="w-full">
             <h1 class="text-3xl font-bebas tracking-wide mb-6">Gestion des permissions</h1>
 
@@ -189,5 +189,5 @@ function goToUser(username) {
                 </div>
             </div>
         </div>
-    </AdminLayout>
+    </AppLayout>
 </template>

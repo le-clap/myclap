@@ -1,6 +1,6 @@
 <script setup>
 import {Head, router, useForm} from '@inertiajs/vue3'
-import ManagerLayout from '@/Components/Layout/ManagerLayout.vue'
+import AppLayout from '@/Components/Layout/AppLayout.vue'
 
 const props = defineProps({
     typeOptions: {
@@ -28,7 +28,7 @@ function submit() {
 
 <template>
     <Head title="Créer une playlist"/>
-    <ManagerLayout leftbar-active="playlists">
+    <AppLayout section="manager" leftbar-active="playlists">
         <div class="w-full">
             <h1 class="text-2xl font-bold mb-6">Créer une playlist</h1>
 
@@ -104,5 +104,5 @@ function submit() {
                 </div>
             </form>
         </div>
-    </ManagerLayout>
+    </AppLayout>
 </template>

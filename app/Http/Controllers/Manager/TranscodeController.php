@@ -8,6 +8,7 @@ use App\Models\VideoTranscode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class TranscodeController extends Controller
 {
@@ -17,7 +18,7 @@ class TranscodeController extends Controller
         'ok' => [TranscodeStatus::COMPLIANT, TranscodeStatus::TRANSCODED],
     ];
 
-    public function index(Request $request)
+    public function index(Request $request): Response
     {
         $validated = $request->validate([
             'q' => 'nullable|string|max:100',
