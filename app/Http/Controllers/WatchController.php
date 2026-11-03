@@ -27,7 +27,7 @@ class WatchController extends Controller
         return Inertia::render('Watch/Index', [
             'video' => $video,
             'userDidLike' => $this->userDidLike($video, $user),
-        ]);
+        ])->withViewData(['meta' => $this->meta($video)]);
     }
 
     public function showInPlaylist(Request $request, Playlist $playlist, Video $video): Response
@@ -54,7 +54,7 @@ class WatchController extends Controller
             'videos' => $videos->values(),
             'currentIndex' => $currentIndex !== false ? $currentIndex : 0,
             'userDidLike' => $this->userDidLike($video, $user),
-        ]);
+        ])->withViewData(['meta' => $this->meta($video)]);
     }
 
     public function download(Video $video): RedirectResponse
@@ -77,6 +77,20 @@ class WatchController extends Controller
                 : null,
             default => null,
         };
+    }
+
+    private function meta(Video $video): ?array
+    {
+        if (! in_array($video->access, [ContentAccess::PUBLIC, ContentAccess::UNLINKED], true)) {
+            return null;
+        }
+
+        return [
+            'title' => $video->name,
+            'description' => $video->description,
+            'image' => $video->thumbnail_url,
+            'video' => $video->video_url,
+        ];
     }
 
     private function userDidLike(Video $video, ?User $user): bool
