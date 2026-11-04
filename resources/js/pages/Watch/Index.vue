@@ -1,9 +1,10 @@
 <script setup>
 import {Head} from '@inertiajs/vue3'
-import {computed} from 'vue'
+import {computed, ref} from 'vue'
 import AppLayout from '@/Components/Layout/AppLayout.vue'
 import VideoPlayer from '@/Components/VideoPlayer.vue'
 import {formatDate, parseDay} from '@/utils/date'
+import {splitTimestamps} from '@/utils/chapters'
 import {useReaction} from '@/composables/useReaction'
 
 const props = defineProps({
@@ -19,6 +20,9 @@ const props = defineProps({
 
 const {liked, likeCount, likeLoading, toggleLike} = useReaction(props.video, props.userDidLike)
 
+const player = ref(null)
+const descriptionParts = computed(() => splitTimestamps(props.video.description || ''))
+
 const categories = computed(() => {
     return props.video.categories || []
 })
@@ -30,7 +34,7 @@ const categories = computed(() => {
         <div class="max-w-6xl mx-auto">
             <!-- Video Player -->
             <div class="mb-4">
-                <VideoPlayer :video="video" view-source="regular"/>
+                <VideoPlayer ref="player" :video="video" view-source="regular"/>
             </div>
 
             <!-- Video Info -->
@@ -77,7 +81,12 @@ const categories = computed(() => {
 
                 <!-- Description -->
                 <div v-if="video.description" class="bg-dark-surface rounded-lg p-4">
-                    <p class="whitespace-pre-wrap text-gray-300">{{ video.description }}</p>
+                    <p class="whitespace-pre-wrap text-gray-300"><template v-for="(part, i) in descriptionParts" :key="i"><button
+                        v-if="part.time !== undefined"
+                        type="button"
+                        class="text-[#ff0502] hover:underline"
+                        @click="player.seekTo(part.time)"
+                    >{{ part.label }}</button><template v-else>{{ part }}</template></template></p>
                 </div>
 
                 <!-- Categories -->

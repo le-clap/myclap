@@ -1,7 +1,9 @@
 <script setup>
-import {onMounted, onUnmounted, ref} from 'vue'
-import Plyr from 'plyr'
+import {onUnmounted, ref} from 'vue'
+import '@videojs/html/video/player'
+import '@videojs/html/video/neutral-skin'
 import axios from 'axios'
+import {chaptersToVtt, parseChapters} from '@/utils/chapters'
 
 const props = defineProps({
     video: {
@@ -15,10 +17,14 @@ const props = defineProps({
 })
 
 const playerElement = ref(null)
-let player = null
 let playbackSid = null
 let updateInterval = null
 let trackingInitialized = false
+
+const chapters = parseChapters(props.video.description)
+const chaptersUrl = chapters.length
+    ? URL.createObjectURL(new Blob([chaptersToVtt(chapters)], {type: 'text/vtt'}))
+    : null
 
 function detectDeviceType() {
     const ua = navigator.userAgent.toLowerCase()
@@ -55,22 +61,13 @@ function detectOS() {
     return null
 }
 
-function getWatchTime() {
-    if (!player) return null
-
-    return {watch_time: player.currentTime || 0}
-}
-
 async function sendMetricsUpdate() {
     if (!playbackSid) return
-
-    const metrics = getWatchTime()
-    if (!metrics) return
 
     try {
         await axios.post(`/api/stats/${props.video.token}/update`, {
             playback_sid: playbackSid,
-            ...metrics
+            watch_time: playerElement.value.currentTime
         })
     } catch (error) {
         console.error('Stat update failed:', error)
@@ -115,96 +112,72 @@ function reloadAfterFileSwap() {
 
     media.addEventListener('loadedmetadata', () => {
         media.currentTime = time
-        if (wasPlaying) media.play().catch(() => {})
+        if (wasPlaying) media.play().catch(() => {
+        })
     }, {once: true})
     media.src = url.toString()
 }
 
-onMounted(() => {
-    playerElement.value.addEventListener('error', reloadAfterFileSwap)
+function onPlay() {
+    pausedByViewer = false
+    initTracking()
+}
 
-    player = new Plyr(playerElement.value, {
-        controls: [
-            'play-large',
-            'play',
-            'progress',
-            'current-time',
-            'mute',
-            'volume',
-            'settings',
-            'pip',
-            'fullscreen'
-        ],
-        settings: ['quality', 'speed'],
-    })
+function seekTo(seconds) {
+    const media = playerElement.value
+    // A time past the end is prose ("RDV à 12:30"), not a position in this video.
+    if (seconds >= media.duration) return
 
-    player.on('play', () => {
-        pausedByViewer = false
-        initTracking()
+    media.currentTime = seconds
+    media.scrollIntoView({block: 'nearest'})
+    media.play().catch(() => {
     })
+}
 
-    player.on('pause', () => {
-        pausedByViewer = true
-    })
-
-    player.on('ended', () => {
-        sendMetricsUpdate()
-    })
-})
+defineExpose({seekTo})
 
 onUnmounted(() => {
-    if (updateInterval) {
-        clearInterval(updateInterval)
-    }
-
-    if (player) {
-        player.destroy()
-    }
+    clearInterval(updateInterval)
+    URL.revokeObjectURL(chaptersUrl)
 })
 </script>
 
 <template>
     <div class="video-player w-full">
-        <video
-            ref="playerElement"
-            :poster="video.thumbnail_url"
-            controls
-            class="w-full rounded-lg"
-        >
-            <source :src="video.video_url" type="video/mp4" @error="reloadAfterFileSwap">
-            Votre navigateur ne supporte pas la lecture de vidéos.
-        </video>
+        <video-player>
+            <video-neutral-skin>
+                <video
+                    ref="playerElement"
+                    :poster="video.thumbnail_url"
+                    playsinline
+                    @error="reloadAfterFileSwap"
+                    @play="onPlay"
+                    @pause="pausedByViewer = true"
+                    @ended="sendMetricsUpdate"
+                >
+                    <source :src="video.video_url" type="video/mp4" @error="reloadAfterFileSwap">
+                    <track v-if="chaptersUrl" kind="chapters" label="Chapitres" default :src="chaptersUrl">
+                    Votre navigateur ne supporte pas la lecture de vidéos.
+                </video>
+            </video-neutral-skin>
+        </video-player>
     </div>
 </template>
 
 <style>
-@import 'plyr/dist/plyr.css';
+video-player {
+    --media-accent-color: #ff0502;
+    --media-border-radius: 0.5rem;
+}
 
-.plyr--video {
+video-neutral-skin {
+    display: block;
     border-radius: 0.5rem;
     overflow: hidden;
 }
 
-.plyr--full-ui input[type=range] {
-    color: #ff0502;
-}
-
-.plyr--video .plyr__control.plyr__tab-focus,
-.plyr--video .plyr__control:hover,
-.plyr--video .plyr__control[aria-expanded=true] {
-    background: #ff0502;
-}
-
-.plyr__control--overlaid {
-    background: rgba(255, 5, 2, 0.8);
-}
-
-.plyr__control--overlaid:hover,
-.plyr__control--overlaid:focus {
-    background: #ff0502;
-}
-
-.plyr--video .plyr__progress__buffer {
-    color: rgba(255, 255, 255, 0.25);
+video-neutral-skin video {
+    aspect-ratio: auto;
+    max-height: 80vh;
 }
 </style>
