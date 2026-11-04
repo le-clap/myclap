@@ -1,5 +1,5 @@
 <script setup>
-import {onMounted, onUnmounted, ref} from 'vue'
+import {onUnmounted, ref} from 'vue'
 import '@videojs/html/video/player'
 import '@videojs/html/video/neutral-skin'
 import axios from 'axios'
@@ -20,6 +20,11 @@ const playerElement = ref(null)
 let playbackSid = null
 let updateInterval = null
 let trackingInitialized = false
+
+const chapters = parseChapters(props.video.description)
+const chaptersUrl = chapters.length
+    ? URL.createObjectURL(new Blob([chaptersToVtt(chapters)], {type: 'text/vtt'}))
+    : null
 
 function detectDeviceType() {
     const ua = navigator.userAgent.toLowerCase()
@@ -56,23 +61,13 @@ function detectOS() {
     return null
 }
 
-function getWatchTime() {
-    const media = playerElement.value
-    if (!media) return null
-
-    return {watch_time: media.currentTime || 0}
-}
-
 async function sendMetricsUpdate() {
     if (!playbackSid) return
-
-    const metrics = getWatchTime()
-    if (!metrics) return
 
     try {
         await axios.post(`/api/stats/${props.video.token}/update`, {
             playback_sid: playbackSid,
-            ...metrics
+            watch_time: playerElement.value.currentTime
         })
     } catch (error) {
         console.error('Stat update failed:', error)
@@ -123,50 +118,27 @@ function reloadAfterFileSwap() {
     media.src = url.toString()
 }
 
-function addChapters() {
-    const media = playerElement.value
-    const chapters = parseChapters(props.video.description)
-    if (!chapters.length || !isFinite(media.duration)) return
-
-    const track = document.createElement('track')
-    track.kind = 'chapters'
-    track.label = 'Chapitres'
-    track.default = true
-    track.src = URL.createObjectURL(new Blob([chaptersToVtt(chapters, media.duration)], {type: 'text/vtt'}))
-    media.appendChild(track)
+function onPlay() {
+    pausedByViewer = false
+    initTracking()
 }
 
 function seekTo(seconds) {
     const media = playerElement.value
+    // A time past the end is prose ("RDV à 12:30"), not a position in this video.
+    if (seconds >= media.duration) return
+
     media.currentTime = seconds
+    media.scrollIntoView({block: 'nearest'})
     media.play().catch(() => {
     })
 }
 
 defineExpose({seekTo})
 
-onMounted(() => {
-    if (playerElement.value.readyState >= 1) {
-        addChapters()
-    } else {
-        playerElement.value.addEventListener('loadedmetadata', addChapters, {once: true})
-    }
-    playerElement.value.addEventListener('error', reloadAfterFileSwap)
-
-    playerElement.value.addEventListener('play', () => {
-        pausedByViewer = false
-        initTracking()
-    })
-    playerElement.value.addEventListener('pause', () => {
-        pausedByViewer = true
-    })
-    playerElement.value.addEventListener('ended', sendMetricsUpdate)
-})
-
 onUnmounted(() => {
-    if (updateInterval) {
-        clearInterval(updateInterval)
-    }
+    clearInterval(updateInterval)
+    URL.revokeObjectURL(chaptersUrl)
 })
 </script>
 
@@ -174,8 +146,17 @@ onUnmounted(() => {
     <div class="video-player w-full">
         <video-player>
             <video-neutral-skin>
-                <video ref="playerElement" :poster="video.thumbnail_url" playsinline>
+                <video
+                    ref="playerElement"
+                    :poster="video.thumbnail_url"
+                    playsinline
+                    @error="reloadAfterFileSwap"
+                    @play="onPlay"
+                    @pause="pausedByViewer = true"
+                    @ended="sendMetricsUpdate"
+                >
                     <source :src="video.video_url" type="video/mp4" @error="reloadAfterFileSwap">
+                    <track v-if="chaptersUrl" kind="chapters" label="Chapitres" default :src="chaptersUrl">
                     Votre navigateur ne supporte pas la lecture de vidéos.
                 </video>
             </video-neutral-skin>
@@ -189,14 +170,13 @@ video-player {
     --media-border-radius: 0.5rem;
 }
 
-video-compat-skin {
+video-neutral-skin {
     display: block;
-    width: 100%;
     border-radius: 0.5rem;
     overflow: hidden;
 }
 
-video-compat-skin video {
+video-neutral-skin video {
     aspect-ratio: auto;
     max-height: 80vh;
 }

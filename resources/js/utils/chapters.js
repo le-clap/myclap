@@ -1,7 +1,9 @@
-// Timestamps like 1:23 or 01:02:03, not glued to other digits/colons.
-const TIMESTAMP = /(?<![\d:])(?:(\d{1,2}):)?(\d{1,2}):(\d{2})(?![\d:])/g
+// 1:23 or 01:02:03, with minutes and seconds under 60.
+const STAMP = String.raw`(?:\d{1,2}:)?[0-5]?\d:[0-5]\d`
+// A timestamp in running text, not glued to other digits/colons.
+const TIMESTAMP = new RegExp(String.raw`(?<![\d:])(${STAMP})(?![\d:])`)
 // A chapter line: "0:00 Intro", "- 1:23 - Title", "[01:02:03] Title".
-const CHAPTER_LINE = /^[\s\-•*[(]*((?:\d{1,2}:)?\d{1,2}:\d{2})[\s\])\-–—:.]*(\S.*)$/
+const CHAPTER_LINE = new RegExp(String.raw`^[\s\-•*[(]*(${STAMP})(?!:\d)[\s\])\-–—:.]+(\S.*)$`)
 
 function toSeconds(stamp) {
     return stamp.split(':').reduce((total, part) => total * 60 + Number(part), 0)
@@ -12,7 +14,7 @@ export function parseChapters(description) {
     const chapters = (description || '').split('\n')
         .map(line => CHAPTER_LINE.exec(line.trim()))
         .filter(Boolean)
-        .map(([, stamp, title]) => ({time: toSeconds(stamp), title: title.trim()}))
+        .map(([, stamp, title]) => ({time: toSeconds(stamp), title}))
 
     const ordered = chapters.every((c, i) => i === 0 || c.time > chapters[i - 1].time)
     return chapters.length >= 2 && ordered ? chapters : []
@@ -20,25 +22,16 @@ export function parseChapters(description) {
 
 // Split text into plain strings and clickable {time, label} parts.
 export function splitTimestamps(text) {
-    const parts = []
-    let last = 0
-    for (const match of text.matchAll(TIMESTAMP)) {
-        if (match.index > last) parts.push(text.slice(last, match.index))
-        parts.push({time: toSeconds(match[0]), label: match[0]})
-        last = match.index + match[0].length
-    }
-    if (last < text.length) parts.push(text.slice(last))
-    return parts
+    return text.split(TIMESTAMP).map((part, i) => i % 2 ? {time: toSeconds(part), label: part} : part)
 }
 
 function vttTime(seconds) {
-    const iso = new Date(seconds * 1000).toISOString() // HH:MM:SS.mmm (videos < 24h)
-    return iso.slice(11, 23)
+    return new Date(seconds * 1000).toISOString().slice(11, 23) // HH:MM:SS.mmm (videos < 24h)
 }
 
-export function chaptersToVtt(chapters, duration) {
+// The last cue is open-ended (23:59:59): the player clamps cues to the media duration.
+export function chaptersToVtt(chapters) {
     const cues = chapters
-        .filter(c => c.time < duration)
-        .map((c, i, all) => `${vttTime(c.time)} --> ${vttTime(all[i + 1]?.time ?? duration)}\n${c.title.replace(/-->/g, '→')}`)
+        .map((c, i, all) => `${vttTime(c.time)} --> ${vttTime(all[i + 1]?.time ?? 86399)}\n${c.title.replace(/-->/g, '→')}`)
     return `WEBVTT\n\n${cues.join('\n\n')}\n`
 }
