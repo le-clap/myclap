@@ -41,6 +41,15 @@ class User extends Authenticatable
         ];
     }
 
+    /**
+     * Users authenticate through CLA and have no password, but
+     * Laravel 13 rejects remember cookies when this isn't a string.
+     */
+    public function getAuthPassword(): string
+    {
+        return '';
+    }
+
     /** @return HasMany<UserPermission, $this> */
     public function permissions(): HasMany
     {
