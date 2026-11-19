@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Auth\CLAProvider;
 use App\Http\Controllers\Controller;
-use App\Services\CLAAuthService;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,9 +13,7 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class CLAController extends Controller
 {
-    public function __construct(
-        private CLAAuthService $claAuth
-    ) {}
+    public function __construct(private CLAProvider $cla) {}
 
     public function login(): SymfonyResponse
     {
@@ -23,7 +22,7 @@ class CLAController extends Controller
         }
 
         // CLA is on another domain: a plain redirect fails CORS on Inertia visits.
-        return Inertia::location($this->claAuth->getAuthUrl());
+        return Inertia::location($this->cla->redirect()->getTargetUrl());
     }
 
     public function handleCallback(Request $request): RedirectResponse
@@ -32,19 +31,24 @@ class CLAController extends Controller
             return redirect()->intended('/');
         }
 
-        $ticket = $request->get('ticket');
-
-        if (! $ticket) {
-            abort(400, 'Ticket manquant');
-        }
-
-        $claData = $this->claAuth->validateTicket($ticket);
-
-        if (! $claData) {
+        try {
+            $claim = $this->cla->user()->getRaw();
+        } catch (\Throwable) {
             abort(500, 'Authentification CLA échouée');
         }
 
-        $user = $this->claAuth->createOrUpdateUser($claData);
+        $user = User::firstOrNew(['username' => $claim['sub']]);
+
+        if (! $user->exists) {
+            $user->first_name = $claim['given_name'];
+            $user->last_name = $claim['family_name'];
+            $user->alumni = false;
+        }
+
+        $user->school_email = $claim['email'];
+        $user->promo = $claim['promo'];
+        $user->logged_on = now();
+        $user->save();
 
         Auth::login($user, remember: true);
         $request->session()->regenerate();
@@ -52,12 +56,12 @@ class CLAController extends Controller
         return redirect()->intended('/');
     }
 
-    public function logout(Request $request): RedirectResponse
+    public function logout(Request $request): SymfonyResponse
     {
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return Inertia::location($this->cla->logoutUrl());
     }
 }

@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Auth\CLAProvider;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Socialite\Facades\Socialite;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -12,7 +14,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(CLAProvider::class, fn () => Socialite::buildProvider(CLAProvider::class, config('services.cla')));
     }
 
     /**

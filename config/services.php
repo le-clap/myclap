@@ -13,8 +13,10 @@ return [
     */
 
     'cla' => [
-        'host' => env('CLA_AUTH_HOST', 'https://centralelilleassos.fr'),
-        'identifier' => env('CLA_AUTH_IDENTIFIER', 'myclap'),
+        'issuer' => env('CLA_ISSUER'),
+        'client_id' => env('CLA_CLIENT_ID'),
+        'client_secret' => env('CLA_CLIENT_SECRET'),
+        'redirect' => env('CLA_REDIRECT_URI'),
     ],
 
 ];
