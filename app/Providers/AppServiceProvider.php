@@ -14,7 +14,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(CLAProvider::class, fn () => Socialite::buildProvider(CLAProvider::class, config('services.cla')));
     }
 
     /**
@@ -22,8 +22,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Socialite::extend('cla', fn () => Socialite::buildProvider(CLAProvider::class, config('services.cla')));
-
         if (app()->environment('production')) {
             URL::forceScheme('https');
         }

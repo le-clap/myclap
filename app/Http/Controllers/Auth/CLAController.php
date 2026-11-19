@@ -2,17 +2,19 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Auth\CLAProvider;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use Laravel\Socialite\Facades\Socialite;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class CLAController extends Controller
 {
+    public function __construct(private CLAProvider $cla) {}
+
     public function login(): SymfonyResponse
     {
         if (Auth::check()) {
@@ -20,7 +22,7 @@ class CLAController extends Controller
         }
 
         // CLA is on another domain: a plain redirect fails CORS on Inertia visits.
-        return Inertia::location(Socialite::driver('cla')->redirect()->getTargetUrl());
+        return Inertia::location($this->cla->redirect()->getTargetUrl());
     }
 
     public function handleCallback(Request $request): RedirectResponse
@@ -30,7 +32,7 @@ class CLAController extends Controller
         }
 
         try {
-            $claim = Socialite::driver('cla')->user()->getRaw();
+            $claim = $this->cla->user()->getRaw();
         } catch (\Throwable) {
             abort(500, 'Authentification CLA échouée');
         }
@@ -60,6 +62,6 @@ class CLAController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return Inertia::location(Socialite::driver('cla')->logoutUrl());
+        return Inertia::location($this->cla->logoutUrl());
     }
 }
