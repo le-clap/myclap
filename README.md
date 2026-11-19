@@ -162,8 +162,10 @@ Vérifier que l'utilisateur du serveur web ait les permissions en écriture sur 
 Dans le fichier `.env`, configurer les paramètres pour l'authentification CLA :
 
 ```
-CLA_AUTH_HOST=https://centralelilleassos.fr
-CLA_AUTH_IDENTIFIER=myclap
+CLA_ISSUER=https://centralelilleassos.fr/auth
+CLA_CLIENT_ID=
+CLA_CLIENT_SECRET=
+CLA_REDIRECT_URI=https://my.le-clap.fr/login/cla
 ```
 
 ## Schéma de la base de données
